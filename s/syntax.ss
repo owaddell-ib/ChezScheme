@@ -9995,7 +9995,7 @@
             [(immutable field-name accessor-name)
              (and (identifier? #'field-name) (identifier? #'accessor-name))
              (make-field-desc
-               (datum field-name)
+               #'field-name
                i
                #'(immutable field-name)
                #'accessor-name
@@ -10003,24 +10003,24 @@
             [(mutable field-name accessor-name mutator-name)
              (and (identifier? #'field-name) (identifier? #'accessor-name) (identifier? #'mutator-name))
              (make-field-desc
-               (datum field-name)
+               #'field-name
                i
                #'(mutable field-name)
                #'accessor-name
                #'mutator-name)]
             [(immutable field-name)
              (identifier? #'field-name)
-             (make-field-desc (datum field-name) i x
+             (make-field-desc #'field-name i x
                (construct-name name name "-" #'field-name)
                #f)]
             [(mutable field-name)
              (identifier? #'field-name)
-             (make-field-desc (datum field-name) i x
+             (make-field-desc #'field-name i x
                (construct-name name name "-" #'field-name)
                (construct-name name name "-" #'field-name "-set!"))]
             [field-name
              (identifier? #'field-name)
-             (make-field-desc (datum field-name) i #'(immutable field-name)
+             (make-field-desc #'field-name i #'(immutable field-name)
                (construct-name name name "-" #'field-name)
                #f)]
             [_ (syntax-error x "invalid field specifier")]))
