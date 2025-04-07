@@ -7945,6 +7945,7 @@
          [(syntax->annotation src) => (lambda (ae) (source-wrap e w ae))]
          [else (wrap e w)])))))
 
+;; TODO should bake in some $replace-source sauce as well
 (set! $construct-name ;; TODO should we lift this out at some point? (see the one in swish)
   (lambda (template-identifier . args)
     (datum->syntax
