@@ -10311,17 +10311,17 @@
              (identifier? #'field-name)
              (make-field-desc #'field-name i x
                ;; TODO consider doing this in construct-name instead; maybe it won't be confusing?
-               (#%$replace-source #'field-name (construct-name name name "-" #'field-name))
+               (replace-source #'field-name (construct-name name name "-" #'field-name))
                #f)]
             [(mutable field-name)
              (identifier? #'field-name)
              (make-field-desc #'field-name i x
-               (#%$replace-source #'field-name (construct-name name name "-" #'field-name))
-               (#%$replace-source #'field-name (construct-name name name "-" #'field-name "-set!")))]
+               (replace-source #'field-name (construct-name name name "-" #'field-name))
+               (replace-source #'field-name (construct-name name name "-" #'field-name "-set!")))]
             [field-name
              (identifier? #'field-name)
              (make-field-desc #'field-name i #'(immutable field-name)
-               (#%$replace-source #'field-name
+               (replace-source #'field-name
                  (construct-name name name "-" #'field-name))
                #f)]
             [_ (syntax-error x "invalid field specifier")]))
@@ -10524,12 +10524,18 @@
                         (define mutator-name
                           (($primitive primlev record-mutator) rtd mutator-index))
                         ...)))))))
+      (define (no-replace-source src x) x)
+      ;; TODO figure out the right way to bootstrap use of $replace-source et al
+      (define replace-source
+        (if (#%$top-level-bound? '$replace-source)
+            (#%$top-level-value '$replace-source)
+            no-replace-source))
       (syntax-case x ()
         [(_ name clause ...)
          (identifier? #'name)
          (do-define-record-type x #'name
-           (#%$replace-source #'name (construct-name #'name "make-" #'name))
-           (#%$replace-source #'name (construct-name #'name #'name "?"))
+           (replace-source #'name (construct-name #'name "make-" #'name))
+           (replace-source #'name (construct-name #'name #'name "?"))
            #'(clause ...))]
         [(_ (name make-name pred-name) clause ...)
          (and (identifier? #'name)
