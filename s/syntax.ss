@@ -549,6 +549,7 @@
   (let ([cell (eq-hashtable-cell (source-map-syntax sm) label #f)])
     (unless (cdr cell)
       (assert (symbol? label)) ;; built in 
+      (printf "reference to imported macro id=~s label=~s\n" id label)      
       (set-cdr! cell (make-syntax-info (syntax->datum id) 'built-in)))
     (let ([info (cdr cell)])
       ;; TODO we get a lot of duplicate source here, e.g., swish/ht.ss <ht> we get 44 references to #<source swish/ht.ss[1492:1496]>
