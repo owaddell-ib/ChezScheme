@@ -526,7 +526,7 @@
     ;;      has the implicit exports as well
     ;;      BUT maybe we (also?) want the exports from the call site which has the identifiers
     ;;      (and their source) where they appear in the export spec of the library or module
-    ;;      Not sure what we get for the case where folks do (export foo) elsewhere in the module or library
+    ;;      [also seems to work for (export foo) elsewhere in module / library]
     (make-realm src name path version (vector->immutable-vector export*) import* export-id*)))
 
 (define (add-alias! sm new-id old-id)
