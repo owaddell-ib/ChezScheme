@@ -2381,8 +2381,7 @@
                                (unless (eq? (id->label id empty-wrap) label)
                                 ; must be an enclosing local-syntax binding for id
                                  (syntax-error orig "definition not permitted"))
-                               (maybe-source! sm =>
-                                 (add-realm! (TODO-FIXME ae) sm (parse-module-name e) '() '() iface-vector '() '()))
+                               ;; already called add-realm! via chi-top-module above
                                (let ([iface (make-interface (wrap-marks (syntax-object-wrap id)) iface-vector)])
                                  (let ([b (make-binding '$module iface)])
                                    (extend-rho! r label b (fxlognot 0))
