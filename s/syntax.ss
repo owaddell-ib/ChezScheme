@@ -555,7 +555,11 @@
     (unless (cdr cell)
       (assert (symbol? label)) ;; built in 
       (printf "reference to imported macro id=~s label=~s\n" id label)      
-      (set-cdr! cell (make-syntax-info (syntax->datum id) 'built-in)))
+      (let ([sym (syntax->datum id)])
+        (set-cdr! cell
+          (make-syntax-info sym
+            ;; resolve label -> source when we load source-map for the library or module
+            (if (eq? sym label) 'built-in label)))))
     (let ([info (cdr cell)])
       ;; TODO we get a lot of duplicate source here, e.g., swish/ht.ss <ht> we get 44 references to #<source swish/ht.ss[1492:1496]>
       ;;      maybe we can collapse these using a source table or using a hashtable
@@ -7170,7 +7174,12 @@
                       (source-map-contour* sm)
                       (source-map-realm* sm)
                       (source-map-imports sm)
-                      (hashtable-values (source-map-syntax sm))
+                      (vector-map
+                       (lambda (cell)
+                         (if (local-label? (car cell))
+                             (cdr cell)
+                             cell))
+                       (hashtable-cells (source-map-syntax sm)))
                       (source-map-alias* sm))))])
                (if records? x ($uncprep x)))))))))
 
