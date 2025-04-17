@@ -112,3 +112,142 @@
         body))
     (Program (prog)
       (program uid body))))
+
+(define-record-type source-map
+  (nongenerative #{source-map nfne4i66hgd1aupfouk6yvuxc-0})
+  (fields
+   (immutable st)         ;; source-table: src -> (source-info ...)
+   (immutable anon)       ;; equal-hashtable: (name . ($sfd)) -> (source-info ...)
+                          ;;    hmm, but if we have a non-#f ($sfd), should we just do (make-source-object ($sfd) 0 0)
+                          ;; BUT I want that notion of sfd neighborhood
+                          ;;  --> this should probably just be the contents of
+                          ;;      $require-include and $require-libraries and ...
+                          ;;  Hmmm. I think I want the bits for =bear make= don't I?
+                          ;;     ---> I am stupid; recompile-info already contains this?????
+   ;; TODO we could walk the table and delete any key that is not a symbol before fasling out instead of collecting
+   (immutable key->node)  ;; TODO rename; hashtable mapping {symbol|prelex|local-label} -> source-info
+   (immutable default-src))
+  ;; TODO make this record type opaque / sealed
+  (protocol
+   (lambda (new)
+     (lambda ()
+       (new
+        (make-source-table)
+        (make-hashtable equal-hash equal?)
+        (make-weak-eq-hashtable)
+        (cond
+         [(#%$sfd) => (lambda (sfd) (make-source-object sfd 0 0))]
+         [else #f]))))))
+
+(define-record-type identifier-info
+  (nongenerative #{identifier-info nfne4i66hgd1aupfouk6yvuxc-1})
+  (fields
+   (immutable name)     ;; symbol
+   (immutable kind)     ;; prim2 | prim3 | local | global | export | syntax
+   ;; TODO these want to tell us about source locations
+   ;;  BUT we also want them to be "precise"; i.e., distinguish set! to var from macro call to id w/ same source
+   (mutable def)        ;; src
+   (mutable set*)       ;; (src ...)
+   (mutable ref*))      ;; (src ...)
+  (protocol
+   (lambda (new)
+     (lambda (name kind def-src)
+       ;; TODO will we want to replace #f with the magical (make-source-object (#%$sfd) 0 0) ????
+       ;;      perhaps in some pass before we resolve everything?
+       ;;      heck, maybe we just make a single such source object and stuff it in the source-map itself?
+       ;;      then whenever we hit #f in this source map we use that source-object ?
+       ;;      (so we do it on demand) ;; OTOH, that might not give us a clean way to drop info related to sfd
+       (new name kind def-src '() '())))))
+
+(define-record-type contour-info
+  (nongenerative #{contour-info nfne4i66hgd1aupfouk6yvuxc-2})
+  (fields
+   ;; TODO are name / kind going to be common fields of a parent source-info record type?
+   (immutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
+   (immutable kind)     ;; lambda | letrec | letrec* | module | library
+   (immutable import*)  ;; (src ...)  ;; TODO more generally: (node ...) ??
+   (immutable export*)  ;; (identifier-info ...)
+   (immutable bound*)   ;; (identifier-info ...)
+   ))
+
+(define (get-or-add-identifier-info! sm kind key name def-src)
+  (let ([cell (eq-hashtable-cell (source-map-key->node sm) key #f)])
+    (or (cdr cell)
+        (let ([si (make-identifier-info name kind def-src)])
+          (set-cdr! cell si)
+          si))))
+
+(module (ae->src TODO-FIXME)
+  (include "types.ss")  ;; TODO BARF figure out how we really share code
+  (define ae->src
+    (lambda (ae)
+      (and (and (annotation? ae) (fxlogtest (annotation-flags ae) (constant annotation-debug)))
+           (annotation-source ae))))
+
+  (define (TODO-FIXME x) ;; TODO FIXME
+    (ae->src
+     (if (syntax-object? x)
+         (syntax-object-expression x)
+         x)))
+  )
+
+(define (get-common-src sm x)
+  (cond
+   [(TODO-FIXME x) =>
+    (lambda (src)
+      (let ([cell (source-table-cell (source-map-st sm) src 0)])
+        (set-cdr! cell (+ 1 (cdr cell)))
+        ;; reuse key, in effect hash consing
+        (car cell)))]
+   ;; TODO should we keep score here as above? right now folks would have to lookup src in source-map-st to get count
+   [else (source-map-default-src sm)]))
+
+(define (cons-uniq x ls)
+  (if (memq x ls)
+      ls
+      (cons x ls)))
+
+(define (add-identifier-ref! sm si id)
+  (let ([src (get-common-src sm id)])
+    (identifier-info-ref*-set! si
+      (cons-uniq src (identifier-info-ref* si)))))
+
+(define (add-identifier-set! sm si id)
+  (let ([src (get-common-src sm id)])
+    (identifier-info-set*-set! si
+      (cons-uniq src (identifier-info-set* si)))))
+
+(define (get-lexical-id-info! sm prelex)
+  (get-or-add-identifier-info! sm 'lexical prelex (prelex-name prelex) (prelex-source prelex)))
+
+(define (add-lexical-ref! sm src prelex)
+  (let ([si (get-lexical-id-info! sm prelex)])
+    (add-identifier-ref! sm si src)))
+
+(define (add-lexical-set! sm src prelex)
+  (let ([si (get-lexical-id-info! sm prelex)])
+    (add-identifier-set! sm si src)))
+
+(define (add-lexical-def! sm src prelex)
+  (let ([si (get-lexical-id-info! sm prelex)])
+    (add-identifier-info-def! sm si src)))
+
+;; TODO temporary thing for debugging
+(define (add-identifier-info-def! sm si src)
+  (let ([src (get-common-src sm src)])
+    (cond
+     [(identifier-info-def si) =>
+      (lambda (prev)
+        (printf "[~a] had def src ~s now change to ~s\n"
+          (if (eq? prev src)
+              "same"
+              "DIFF")
+          prev src))])
+    (identifier-info-def-set! si src)))
+
+(define (add-global-set! sm src name)
+  (printf "punting on global set! ~s\n" name))
+
+;; TODO also do a global-def when we process library guts
+(define (add-global-ref! sm src name)
+  (printf "punting on global ref! ~s\n" name))

@@ -370,10 +370,6 @@
   (set-who! $extract-source
     (lambda (x)
       ;; TODO decide how to share this with syntax.ss      
-      (define ae->src
-        (lambda (ae)
-          (and (and (annotation? ae) (fxlogtest (annotation-flags ae) (constant annotation-debug)))
-               (annotation-source ae))))
       (define (prelex->src prelex)
         (ae->src (prelex-source prelex)))
       (define st (make-source-table)) ;; TODO still not sure what we want

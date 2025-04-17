@@ -366,253 +366,42 @@
 
 (define $source-map ($make-thread-parameter #f))
 
-(define-record-type source-map
-  (nongenerative)
-  (fields
-   (immutable st)         ;; source-table: src -> (source-info ...)
-   (immutable anon)       ;; equal-hashtable: (name . ($sfd)) -> (source-info ...)
-                          ;; BUT I want that notion of sfd neighborhood
-                          ;;  --> this should probably just be the contents of
-                          ;;      $require-include and $require-libraries and ...
-                          ;;  Hmmm. I think I want the bits for =bear make= don't I?
-                          ;;     ---> I am stupid; recompile-info already contains this?????
-   ;; TODO what if this were a weak-eq-hashtable ?
-   ;; TODO or what if we walk the table and delete any key that is not a symbol
-   (immutable key->node)  ;; TODO rename; hashtable mapping symbol -> source-info
-                          ;;  --> we may have to resolve which one of the source-info it is in the st or anon
-                          ;;      on the initial lookup, but then we should be able to smash just that guy
-                          ;;  --> we'll use this to link info from other source maps
-                          ;;      but that means lexicals don't belong here
-   (immutable prelex->node)  ;; TODO eq-hashtable mapping prelex -> source-info
-                             ;; TODO maybe local-label for macro belongs here as well?
-   )
-  ;; TODO make this record type opaque / sealed
-  (protocol
-   (lambda (new)
-     (lambda ()
-       (new (make-source-table) (make-hashtable equal-hash equal?) (make-eq-hashtable) (make-eq-hashtable))))))
-
-(define-record-type identifier-info
-  (nongenerative)
-  (fields
-   (immutable name)     ;; symbol
-   (immutable kind)     ;; primitive | local | global | export | syntax
-   ;; TODO these want to tell us about source locations
-   ;;  BUT we also want them to be "precise"; i.e., distinguish set! to var from macro call to id w/ same source
-   (mutable def)
-   (mutable set*)
-   (mutable ref*)
-   )
-  )
-
-(define-record-type contour-info
-  (nongenerative)
-  (fields
-   ;; TODO are name / kind going to be common fields of a parent source-info record type?
-   (immutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
-   (immutable kind)     ;; lambda | letrec | letrec* | module | library
-   (immutable import*)  ;; (src ...)  ;; TODO more generally: (node ...) ??
-   (immutable export*)  ;; (identifier-info ...)
-   (immutable bound*)   ;; (identifier-info ...)
-   ))
-
-;; TODO decide out how to provide access to compatible record types for client's use
-;; TODO re-sync gensyms if need be; doh, we can't change the mutability of record once we fasl it out
-(define-record-type lexical-info
-  (nongenerative #{lexical-info ble5klpzns025alnatm0ydav9-0})
-  (fields (immutable name) (immutable bind-src) (mutable ref-src*) (mutable set-src*))
-  (protocol
-   (lambda (new)
-     (lambda (prelex)
-       (new (prelex-name prelex) (prelex->src prelex) '() '())))))
-
-;; TODO do we care about meta-level for globals?
-(define-record-type global-info
-  (nongenerative #{global-info ble5klpzns025alnatm0ydav9-1})
-  (fields (immutable name) (mutable ref-src*) (mutable set-src*))
-  (protocol
-   (lambda (new)
-     (lambda (name)
-       (new name '() '())))))
-
-;; TODO better names? don't want to confuse with make-priminfo elsewhere
-(define-record-type prim-info
-  (nongenerative #{prim-info a9h3n8t2pis427wy51x6e77bg-0})
-  (fields (immutable name) (mutable ref2-src*) (mutable ref3-src*))
-  (protocol
-   (lambda (new)
-     (lambda (name)
-       (new name '() '())))))
-
-;; TODO hmm,do we want to do something with fluid-let-syntax and think about
-;;      unifying lexical-info global-info and syntax-info into identifier-info
-;;      with a type field (or use record inheritance for type)?
-;; TODO can we use label from id->label as hashtable key?
-(define-record-type syntax-info
-  (nongenerative #{syntax-info ble5klpzns025alnatm0ydav9-3})
-  (fields (immutable name) (immutable bind-src) (immutable meta-level) (mutable ref-src*))
-  (protocol
-   (lambda (new)
-     (lambda (name bind-src)
-       (new name bind-src (meta-level) '())))))
-
-(define-record-type contour
-  (nongenerative #{contour ble5klpzns025alnatm0ydav9-4})
-  (fields (immutable src) (immutable type) (immutable meta-level) (immutable bound*))
-  (protocol
-   (lambda (new)
-     (lambda (src type bound*)
-       (new src type (meta-level) bound*)))))
-
-;; TODO should probably record source for where we imported the silly thing
-(define-record-type realm
-  (nongenerative #{realm dk0h38d9wcwydof3f2dgd7w9h-0})
-  (fields
-   (immutable src) (immutable name) (immutable path) (immutable version) (immutable meta-level) (immutable export*) (immutable import*)
-   (immutable export-id*))
-  (protocol
-   (lambda (new)
-     (lambda (src name path version export* import* export-id*)
-       ;; path is () for module, non-empty for library
-       ;; TODO can we get imports for modules when explicit?
-       (new src name path version (meta-level) export* import* export-id*)))))
-
-(define (get-or-add-source! sm key get-table make)
-  (let ([cell (eq-hashtable-cell (get-table sm) key #f)])
-    (or (cdr cell)
-        (let ([x (make key)])
-          (set-cdr! cell x)
-          x))))
-
-(define (get-or-add-lexical! sm prelex)
-  (get-or-add-source! sm prelex source-map-prelex->node
-    (lambda (prelex)
-      (make-identifier-info (prelex-name prelex)
-        ;; TBD     
-))))
-
-(define (get-or-add-global! sm name)
-  (get-or-add-source! sm name source-map-key->node make-identifier-info))
-
-(define (add-lexical! src prelex sm get set)
-  (let ([info (get-or-add-lexical! sm prelex)])
-    (set info (cons src (get info)))))
-
-(define (add-lexical-ref! src prelex sm)
-  (add-lexical! src prelex sm lexical-info-ref-src* lexical-info-ref-src*-set!))
-
-(define (add-lexical-set! src prelex sm)
-  (add-lexical! src prelex sm lexical-info-set-src* lexical-info-set-src*-set!))
-
-(define (add-global! src name sm get set)
-  (let ([info (get-or-add-global! sm name)])
-    (set info (cons src (get info)))))
-
-(define (add-global-ref! src name sm)
-  (add-global! src name sm global-info-ref-src* global-info-ref-src*-set!))
-
-(define (add-global-set! src name sm)
-  (add-global! src name sm global-info-set-src* global-info-set-src*-set!))
-
-(define (add-prim-ref src name sm level)
-  ;; TODO when expanding macros generated by macros (etc.) we can get a bunch of occurrences of the same primref
-  ;;      (e.g., to andmap or some such) that all have the same source location
-  ;; TODO would it make more sense to use a source-table for primrefs?
-  ;;      map src -> prim-info
-  ;;        - would want to check to see if we can hit with both o=2 and o=3 for same source
-  ;;        - for example, if we (include "foo.ss") in two parts of the code with optimize-level set both ways
-  ;;          - maybe make the prim-info mutable?
-  ;;          - or do we stuff the primref itself in a list w/ equivalent of (cons pr (remq pr ls))
-  ;; TODO maybe one source-table for o=2 and separate one for o=3 just mapping source -> primref-name
-  ;; TODO I had some rationale for not using a source-table at one point. What was it?
-  (let ([info (get-or-add-source! sm name source-map-primitive make-prim-info)])
-    ;; 2 or 3 given base-lang.ss lookup-primref
-    (case level
-      ;; TODO instead rename ref2 and ref3 to safe and unsafe ?
-      [(2) (prim-info-ref2-src*-set! info (cons src (prim-info-ref2-src* info)))]
-      [(3) (prim-info-ref3-src*-set! info (cons src (prim-info-ref3-src* info)))]
-      [else ($oops #f "unexpected primitive level ~s" level)])))
-
-(define (extend-source-map! sm get-field set-field! item)
-  (set-field! sm (cons item (get-field sm))))
-
-;; TODO do we want to try to get nesting info?
-;; TODO some letrec* contours are from build-library-body; is there any help / harm in that?
-(define (add-contour! src type sm bound*)
-  (if #f #; (null? bound*)
-      ;; TODO not sure we want to drop empty contour
-      ;;      - if we have (define (foo) (define bar ...) body)
-      ;;        we currently get an empty contour for the outer definition
-      ;;        and it binds no variables
-      ;;      - yet the letrec* for the internal definition that does bind variables
-      ;;        has no source
-      (printf "empty ~s contour at ~s\n" type src)    
-      (extend-source-map! sm source-map-contour* source-map-contour*-set!
-        (make-contour src type
-          ;; TODO if we defer lexical references to $extract-source then how do we link contour to bound vars?
-          (map (lambda (prelex) (get-or-add-lexical! sm prelex))
-            bound*))))
-  )
-
-(define (add-realm! src sm name path version export* import* export-id*)
-  (extend-source-map! sm source-map-realm* source-map-realm*-set!
-    ;; TODO maybe we don't want syntax objects in export* but just the annotated bit ?
-    ;; TODO currently passing iface-evctor in for export* on the assumption that it probably
-    ;;      has the implicit exports as well
-    ;;      BUT maybe we (also?) want the exports from the call site which has the identifiers
-    ;;      (and their source) where they appear in the export spec of the library or module
-    ;;      [also seems to work for (export foo) elsewhere in module / library]
-    (make-realm src name path version (vector->immutable-vector export*) import* export-id*)))
-
-(define (add-alias! sm new-id old-id)
-  ;; TODO should we grab the label
-  ;;      - use that as the key?
-  ;; TODO maybe we should generalize lexical-info / global-info / etc.
-  ;;      into: identifier-info with a type that is lexical / global / syntax / alias
-  (source-map-alias*-set! sm
-    (cons (cons new-id old-id) (source-map-alias* sm))))
-
-(define (add-import! sm mid import-spec)
-  (hashtable-update! (source-map-imports sm) (id-sym-name mid)
-    (lambda (prev)
-      (cons (TODO-FIXME import-spec) prev))
-    '()))
-
-(define (TODO-FIXME x) ;; TODO FIXME
-  (ae->src
-   (if (syntax-object? x)
-       (syntax-object-expression x)
-       x)))
-
-;; TODO reorder the arguments so sm comes first for all of these?
-(define (add-macro-ref! id sm label)
-  (let ([cell (eq-hashtable-cell (source-map-syntax sm) label #f)])
-    (unless (cdr cell)
-      (assert (symbol? label)) ;; built in 
-      (printf "reference to imported macro id=~s label=~s\n" id label)      
-      (let ([sym (syntax->datum id)])
-        (set-cdr! cell
-          (make-syntax-info sym
-            ;; resolve label -> source when we load source-map for the library or module
-            (if (eq? sym label) 'built-in label)))))
-    (let ([info (cdr cell)])
-      ;; TODO we get a lot of duplicate source here, e.g., swish/ht.ss <ht> we get 44 references to #<source swish/ht.ss[1492:1496]>
-      ;;      maybe we can collapse these using a source table or using a hashtable
-      ;;      --> note hashtable would need to handle case where source is #f or #<source ...>
-      (syntax-info-ref-src*-set! info
-        (cons (TODO-FIXME id)
-          (syntax-info-ref-src* info))))))
-
-(define (add-macro-binding! id sm label)
-  (let ([cell (eq-hashtable-cell (source-map-syntax sm) label #f)])
-    (assert (not (cdr cell))) 
-    (set-cdr! cell (make-syntax-info (syntax->datum id) (TODO-FIXME id)))))
-
 (define-syntax maybe-source!
   (syntax-rules (=>)
     [(_ sm => e0 e1 ...)
      (identifier? #'sm)
      (cond [($source-map) => (lambda (sm) e0 e1 ...)])]))
+
+;;; hooks to nonportable run-time helpers
+
+(include "types.ss")
+(import (nanopass))
+(include "base-lang.ss")
+(include "expand-lang.ss")
+
+(define (get-syntax-id-info! sm label id)
+  (get-or-add-identifier-info! sm 'syntax label (syntax->datum id) #f))
+
+;; TODO reorder the arguments so sm comes first for all of these?
+(define (add-syntax-ref! sm id label)
+  (let ([si (get-syntax-id-info! sm label id)])
+    (add-identifier-ref! sm si id)))
+
+(define (add-syntax-set! sm id label)
+  (let ([si (get-syntax-id-info! sm label id)])
+    (add-identifier-set! sm si id)))
+
+(define (add-syntax-def! sm id label)
+  (let ([si (get-syntax-id-info! sm label id)])
+    (add-identifier-info-def! sm si id)))
+
+;; TODO reword comment
+;; expander boils away primref source, so we need to track these here
+(define (add-prim-ref! sm src name level)  ;; TODO decide on suitable order for arguments
+  (let* ([kind (if (fx= level 3) 'unsafe-prim 'safe-prim)]
+         [si (get-or-add-identifier-info! sm kind name name #f)])
+    ;; TODO someday get def src for Chez Scheme primitives
+    (add-identifier-ref! sm si src)))
 
 ;; TODO look for existing mechanism for getting source
 ;; TODO recursion here based on syntax-object record-writer
@@ -626,12 +415,21 @@
         no-source])
       no-source))
 
-;;; hooks to nonportable run-time helpers
+(define (add-import! sm mid impspec)
+  (printf "punting on import of ~s\n" mid)
+  (void))
 
-(include "types.ss")
-(import (nanopass))
-(include "base-lang.ss")
-(include "expand-lang.ss")
+(define (add-alias! sm new-id old-id)
+  (printf "punting on alias of ~s\n" old-id)
+  (void))
+
+(define (add-realm! . ignore)
+  (printf "punting on add-realm\n")
+  (void))
+
+(define (add-contour! . ignore)
+  (printf "punting on add-contour\n")
+  (void))
 
 (begin
 (define top-level-eval-hook
@@ -721,15 +519,6 @@
 
 ;;; output constructors
 (with-output-language (Lsrc Expr)
-(define ae->src
-  (lambda (ae)
-    (and (and (annotation? ae) (fxlogtest (annotation-flags ae) (constant annotation-debug)))
-         (annotation-source ae))))
-
-(define prelex->src
-  (lambda (prelex)
-    ;; TODO should we do anything w/ sym name ?
-    (ae->src (prelex-source prelex))))
 
 (define build-profile
   (lambda (ae e)
@@ -848,7 +637,7 @@
 (define build-lexical-reference
   (lambda (ae prelex)
     (let ([src (ae->src ae)])
-      (maybe-source! sm => (add-lexical-ref! src prelex sm)) ;; TODO defer to $extract-source ?
+      (maybe-source! sm => (add-lexical-ref! sm src prelex)) ;; TODO defer to $extract-source ?
       (if (prelex-referenced prelex)
          (set-prelex-multiply-referenced! prelex #t)
          (set-prelex-referenced! prelex #t))
@@ -857,7 +646,7 @@
 (define build-lexical-assignment
   (lambda (ae id var exp)
     (let ([src (ae->src ae)])
-      (maybe-source! sm => (add-lexical-set! (TODO-FIXME id) var sm)) ;; TODO defer to $extract-source ?
+      (maybe-source! sm => (add-lexical-set! sm (TODO-FIXME id) var)) ;; TODO defer to $extract-source ?
       (set-prelex-assigned! var #t)
       (build-profile ae `(set! ,src ,var ,exp)))))
 
@@ -871,14 +660,14 @@
 (define build-primitive-reference
   (lambda (ae name)
     (let ([level (fxmax (optimize-level) 2)])
-      (maybe-source! sm => (add-prim-ref (ae->src ae) name sm level))
+      (maybe-source! sm => (add-prim-ref! sm (ae->src ae) name level))
       (if ($suppress-primitive-inlining)
           (build-primcall ae 3 '$top-level-value `(quote ,name))
           (build-profile ae (lookup-primref level name))))))
 
 (define build-primitive-assignment
   (lambda (ae name val)
-    (maybe-source! sm => (add-global-set! (ae->src ae) name sm))
+    (maybe-source! sm => (add-global-set! sm (ae->src ae) name))
     (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val)))
 
 (module (build-global-reference build-global-assignment)
@@ -891,13 +680,13 @@
   (define build-global-reference
     (lambda (ae name safe?)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "reference to" name))
-      (maybe-source! sm => (add-global-ref! (ae->src ae) name sm))
+      (maybe-source! sm => (add-global-ref! sm (ae->src ae) name))
       (build-primcall ae (if (or safe? (fx= (optimize-level) 3)) 3 2) '$top-level-value `(quote ,name))))
 
   (define build-global-assignment
     (lambda (ae id-src name val)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "assignment to" name))
-      (maybe-source! sm => (add-global-set! (TODO-FIXME id-src) name sm))
+      (maybe-source! sm => (add-global-set! sm (TODO-FIXME id-src) name))
       (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val))))
 
 (define build-cte-install
@@ -987,7 +776,7 @@
     (let ([pr ($sgetprop name (if (eqv? level 2) '*prim2* '*prim3*) #f)])
       (and pr
            (begin
-             (maybe-source! sm => (add-prim-ref (ae->src ae) name sm level))
+             (maybe-source! sm => (add-prim-ref! sm (ae->src ae) name level))
              (build-profile ae pr))))))
 
 (define build-data
@@ -2144,7 +1933,7 @@
                     [type (binding-type b)])
                (case type
                  [(macro macro!)
-                  (maybe-source! sm => (add-macro-ref! first sm label))
+                  (maybe-source! sm => (add-syntax-ref! sm first label))
                   (syntax-type (chi-macro (binding-value b) e r w ae rib)
                     r empty-wrap ae rib)]
                  [(core) (values type (binding-value b) e w ae)]
@@ -2178,7 +1967,7 @@
          (case type
            [(macro macro!)
             ;; TODO need to work harder to preserve source here (see annotation? case above)
-            (maybe-source! sm => (add-macro-ref! e sm label))
+            (maybe-source! sm => (add-syntax-ref! sm e label))
             (syntax-type (chi-macro (binding-value b) e r w ae rib)
               r empty-wrap ae rib)]
            [else (values type (binding-value b) e w ae)]))]
@@ -2295,7 +2084,7 @@
                                          (wrap-marks (syntax-object-wrap id))
                                          top-ribcage)])
                            (extend-ribcage! ribcage id label)
-                           (maybe-source! sm => (add-macro-binding! id sm label))
+                           (maybe-source! sm => (add-syntax-def! sm id label))
                            (unless (eq? (id->label id empty-wrap) label)
                             ; must be an enclosing local-syntax binding for id
                              (syntax-error (source-wrap e w ae)
@@ -3590,7 +3379,7 @@
                           [label (gen-global-label (id-sym-name id))]
                           [exp (not-at-top (meta-chi rhs r w))])
                      (extend-ribcage! ribcage id label)
-                     (maybe-source! sm => (add-macro-binding! id sm label))
+                     (maybe-source! sm => (add-syntax-def! sm id label))
                      (unless (eq? (id->label id empty-wrap) label)
                       ; must be an enclosing local-syntax binding for id
                        (syntax-error (source-wrap e w ae)
@@ -4198,7 +3987,7 @@
                                   (defer-or-eval-transformer 'define-syntax local-eval-hook
                                     (meta-chi rhs r w))
                                   (fxlognot (meta-level)))])
-                     (maybe-source! sm => (add-macro-binding! id sm label))
+                     (maybe-source! sm => (add-syntax-def! sm id label))
                      (record-id! defn-table id label)
                      (extend-ribcage! ribcage id label)
                      (unless (eq? (id->label id empty-wrap) label)
@@ -4844,7 +4633,7 @@
                                (make-local-label displaced-lexical-binding (fxlognot (meta-level))))
                           ids)])
             (maybe-source! sm =>
-              (for-each (lambda (id label) (add-macro-binding! id sm label))
+              (for-each (lambda (id label) (add-syntax-def! sm id label))
                 ids labels))
             (let ([new-w (make-binding-wrap ids labels w)])
               (let ([b* (let ([w (if rec? new-w w)])
@@ -6384,6 +6173,9 @@
                  ((displaced-lexical) (displaced-lexical-error (wrap id w) "bind" (binding-value b))))))
            (syntax (var ...))
            label*)
+         (maybe-source! sm =>
+           (for-each (lambda (label var) (add-syntax-set! sm var label))
+             label* (syntax (var ...))))
          (let ([b* (map (lambda (x)
                           (defer-or-eval-transformer 'fluid-let-syntax
                             local-eval-hook
@@ -7202,6 +6994,8 @@
                 [($report-source-info) =>
                  (lambda (report)
                    (when sm
+                     (printf "sm = ~s\n" sm)
+                     #; 
                      (report outfn
                       (hashtable-values (source-map-lexical sm))
                       (hashtable-values (source-map-global sm))
