@@ -369,21 +369,52 @@
 (define-record-type source-map
   (nongenerative)
   (fields
-   (immutable lexical)    ;; prelex -> lexical-info
-   (immutable global)     ;; name -> global-info
-   (immutable primitive)  ;; name -> prim-info
-   (immutable syntax)     ;; name -> syntax-info   ;; TODO maybe this is more like CTE ?
-   (immutable imports)    ;; mid -> (source ...)
-   (mutable realm*)       ;; (realm ...)
-   (mutable contour*)     ;; (contour ...)
-   (mutable alias*))    ;; alias: ((new-id . old-id) ...)
+   (immutable st)         ;; source-table: src -> (source-info ...)
+   (immutable anon)       ;; equal-hashtable: (name . ($sfd)) -> (source-info ...)
+                          ;; BUT I want that notion of sfd neighborhood
+                          ;;  --> this should probably just be the contents of
+                          ;;      $require-include and $require-libraries and ...
+                          ;;  Hmmm. I think I want the bits for =bear make= don't I?
+                          ;;     ---> I am stupid; recompile-info already contains this?????
+   ;; TODO what if this were a weak-eq-hashtable ?
+   ;; TODO or what if we walk the table and delete any key that is not a symbol
+   (immutable key->node)  ;; TODO rename; hashtable mapping symbol -> source-info
+                          ;;  --> we may have to resolve which one of the source-info it is in the st or anon
+                          ;;      on the initial lookup, but then we should be able to smash just that guy
+                          ;;  --> we'll use this to link info from other source maps
+                          ;;      but that means lexicals don't belong here
+   (immutable prelex->node)  ;; TODO eq-hashtable mapping prelex -> source-info
+                             ;; TODO maybe local-label for macro belongs here as well?
+   )
+  ;; TODO make this record type opaque / sealed
   (protocol
    (lambda (new)
      (lambda ()
-       (new (make-eq-hashtable) (make-eq-hashtable) (make-eq-hashtable) (make-eq-hashtable)
-         ;; TODO is this safe? can we rely on mid being a symbol (not #f, say) where we add-import!
-         (make-hashtable symbol-hash eq?)
-         '() '() '())))))
+       (new (make-source-table) (make-hashtable equal-hash equal?) (make-eq-hashtable) (make-eq-hashtable))))))
+
+(define-record-type identifier-info
+  (nongenerative)
+  (fields
+   (immutable name)     ;; symbol
+   (immutable kind)     ;; primitive | local | global | export | syntax
+   ;; TODO these want to tell us about source locations
+   ;;  BUT we also want them to be "precise"; i.e., distinguish set! to var from macro call to id w/ same source
+   (mutable def)
+   (mutable set*)
+   (mutable ref*)
+   )
+  )
+
+(define-record-type contour-info
+  (nongenerative)
+  (fields
+   ;; TODO are name / kind going to be common fields of a parent source-info record type?
+   (immutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
+   (immutable kind)     ;; lambda | letrec | letrec* | module | library
+   (immutable import*)  ;; (src ...)  ;; TODO more generally: (node ...) ??
+   (immutable export*)  ;; (identifier-info ...)
+   (immutable bound*)   ;; (identifier-info ...)
+   ))
 
 ;; TODO decide out how to provide access to compatible record types for client's use
 ;; TODO re-sync gensyms if need be; doh, we can't change the mutability of record once we fasl it out
@@ -454,10 +485,14 @@
           x))))
 
 (define (get-or-add-lexical! sm prelex)
-  (get-or-add-source! sm prelex source-map-lexical make-lexical-info))
+  (get-or-add-source! sm prelex source-map-prelex->node
+    (lambda (prelex)
+      (make-identifier-info (prelex-name prelex)
+        ;; TBD     
+))))
 
 (define (get-or-add-global! sm name)
-  (get-or-add-source! sm name source-map-global make-global-info))
+  (get-or-add-source! sm name source-map-key->node make-identifier-info))
 
 (define (add-lexical! src prelex sm get set)
   (let ([info (get-or-add-lexical! sm prelex)])
