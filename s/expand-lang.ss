@@ -116,15 +116,11 @@
 (define-record-type source-map
   (nongenerative #{source-map nfne4i66hgd1aupfouk6yvuxc-0})
   (fields
+   ;; TODO well, darn: fasl-write doesn't like source tables
+   ;;                  but we could (fasl-write (source-table-dump st) op)
    (immutable st)         ;; source-table: src -> (source-info ...)
-   (immutable anon)       ;; equal-hashtable: (name . ($sfd)) -> (source-info ...)
-                          ;;    hmm, but if we have a non-#f ($sfd), should we just do (make-source-object ($sfd) 0 0)
-                          ;; BUT I want that notion of sfd neighborhood
-                          ;;  --> this should probably just be the contents of
-                          ;;      $require-include and $require-libraries and ...
-                          ;;  Hmmm. I think I want the bits for =bear make= don't I?
-                          ;;     ---> I am stupid; recompile-info already contains this?????
-   ;; TODO we could walk the table and delete any key that is not a symbol before fasling out instead of collecting
+   ;; TODO we could walk the table move nodes whose key is not a symbol into a separate
+   ;;      list of nodes that don't need linking beyond the current file
    (immutable key->node)  ;; TODO rename; hashtable mapping {symbol|prelex|local-label} -> source-info
    (immutable default-src))
   ;; TODO make this record type opaque / sealed
@@ -133,8 +129,7 @@
      (lambda ()
        (new
         (make-source-table)
-        (make-hashtable equal-hash equal?)
-        (make-weak-eq-hashtable)
+        (make-eq-hashtable)
         (cond
          [(#%$sfd) => (lambda (sfd) (make-source-object sfd 0 0))]
          [else #f]))))))
@@ -185,10 +180,12 @@
            (annotation-source ae))))
 
   (define (TODO-FIXME x) ;; TODO FIXME
-    (ae->src
-     (if (syntax-object? x)
-         (syntax-object-expression x)
-         x)))
+    (if (source-object? x)
+        x
+        (ae->src
+         (if (syntax-object? x)
+             (syntax-object-expression x)
+             x))))
   )
 
 (define (get-common-src sm x)
@@ -218,7 +215,8 @@
       (cons-uniq src (identifier-info-set* si)))))
 
 (define (get-lexical-id-info! sm prelex)
-  (get-or-add-identifier-info! sm 'lexical prelex (prelex-name prelex) (prelex-source prelex)))
+  (get-or-add-identifier-info! sm 'lexical prelex (prelex-name prelex)
+    (get-common-src sm (prelex-source prelex))))
 
 (define (add-lexical-ref! sm src prelex)
   (let ([si (get-lexical-id-info! sm prelex)])

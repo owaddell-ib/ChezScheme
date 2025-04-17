@@ -6994,7 +6994,7 @@
                 [($report-source-info) =>
                  (lambda (report)
                    (when sm
-                     (printf "sm = ~s\n" sm)
+                     (report sm)    
                      #; 
                      (report outfn
                       (hashtable-values (source-map-lexical sm))
