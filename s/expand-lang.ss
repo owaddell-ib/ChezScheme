@@ -139,8 +139,11 @@
   (fields
    (immutable name)     ;; symbol
    (immutable kind)     ;; prim2 | prim3 | local | global | export | syntax
+   ;; TODO have a count field for number of times we "generated" this node? (would stencil-vector be useful here w/ diff index for sc-expand, before-cp0, after-cp0 ?)
+   ;;      maybe if stencil-vector-mask already cool for our pass then we can use stencil-vector-set! else use stencil-vector-update ?
    ;; TODO these want to tell us about source locations
    ;;  BUT we also want them to be "precise"; i.e., distinguish set! to var from macro call to id w/ same source
+#;    (mutable count) ;; see speculation above; but that doesn't tell us which ref or set was eliminated by cp0; need to build more to see what we really want
    (mutable def)        ;; src
    (mutable set*)       ;; (src ...)
    (mutable ref*))      ;; (src ...)
@@ -165,13 +168,6 @@
    (immutable import*)  ;; edges showing where we were imported (src ...)  ;; TODO more generally: (node ...) ??
    (immutable export*)  ;; (identifier-info ...)
    ))
-
-(define (get-or-add-identifier-info! sm kind key name def-src)
-  (let ([cell (eq-hashtable-cell (source-map-key->node sm) key #f)])
-    (or (cdr cell)
-        (let ([si (make-identifier-info name kind def-src)])
-          (set-cdr! cell si)
-          si))))
 
 (module (ae->src TODO-FIXME)
   (include "types.ss")  ;; TODO BARF figure out how we really share code
@@ -200,7 +196,37 @@
    ;; TODO should we keep score here as above? right now folks would have to lookup src in source-map-st to get count
    [else (source-map-default-src sm)]))
 
-(define (cons-uniq x ls)
+(define (get-or-add-identifier-info! sm kind key name def-src)
+  ;; TODO will likely pull fields out into parent record
+  ;;      *BUT* eq? may not work for name if we extend this to contour
+  (define source-info-name identifier-info-name)          
+  (define source-info-kind identifier-info-kind)          
+  (define (reuse si)
+    ;; TODO consider how to deduplicate source-info nodes
+    ;;      - may be pointless to represent each unique graph of references that occurs during expansion
+    ;;      - folks interact w/ source, so we may need to coalesce based on source info
+    ;;        - yet might not have def-src in some cases
+    ;;        - but we do have "kind" and "key" so we don't have to punt entirely
+    ;;      - how do we merge nodes that source in common?
+    ;;        - ? rely on source table (extended to handle no-source case)
+    ;;        - leverage def-src if we have it (prelex)
+    ;;        - lookup in source-map-st and reuse existing source-info of the same kind (and name) in that bucket?
+    ;;          - have to check kind and name because #%$replace-source could mean we dump multiple things in same bucket
+    (and (eq? (source-info-name si) name)
+         (eq? (source-info-kind si) kind)
+         si))
+  (let ([cell (eq-hashtable-cell (source-map-key->node sm) key '())]
+        [src (get-common-src sm def-src)])
+    (let find ([p (cdr cell)])
+      (cond
+       [(null? p)
+        (let ([si (make-identifier-info name kind src)])
+          (set-cdr! cell (cons si (cdr cell)))
+          si)]
+       [(reuse (car p))]
+       [else (find (cdr p))]))))
+
+(define (cons-uniq x ls) ;; add counts?
   (if (memq x ls)
       ls
       (cons x ls)))

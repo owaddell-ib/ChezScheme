@@ -538,6 +538,15 @@
     (lambda (src fmls body)
       (define (return fmls iface body)
         ;; TODO for now record lambda clause in contours; eventually we may just want the one in cprep.ss $extract-source
+        ;;
+        ;; TODO LEFT OFF HERE:
+        ;;  - for case-lambda
+        ;;    - don't pass case-lambda src in to build-clause
+        ;;    - instead pass in the actual clause source
+        ;;  - make a contour for each case-lambda clause
+        ;;  - build a node for the case-lambda or the lambda
+        ;;  - link the lambda or case-lambda node to its contour(s)
+        ;;
         (when-source-map sm => (add-contour! src 'lambda sm fmls))
         (in-context CaseLambdaClause
           `(clause (,fmls ...) ,iface ,body)))
