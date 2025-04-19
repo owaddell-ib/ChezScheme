@@ -114,7 +114,7 @@
       (program uid body))))
 
 (define-record-type source-map
-  (nongenerative #{source-map nfne4i66hgd1aupfouk6yvuxc-0})
+  (nongenerative #{source-map lv8ml2z2kzyg0qqg38i103apk-0})
   (fields
    ;; TODO well, darn: fasl-write doesn't like source tables
    ;;                  but we could (fasl-write (source-table-dump st) op)
@@ -122,17 +122,20 @@
    ;; TODO we could walk the table move nodes whose key is not a symbol into a separate
    ;;      list of nodes that don't need linking beyond the current file
    (immutable key->node)  ;; TODO rename; hashtable mapping {symbol|prelex|local-label} -> source-info
-   (immutable default-src)) ;; ?? at any point we're extending source map for at most one ($sfd)
+   (immutable default-cell)) ;; ?? at any point we're extending source map for at most one ($sfd)
   ;; TODO make this record type opaque / sealed
   (protocol
    (lambda (new)
      (lambda ()
+       (define default-src
+         (cond
+          [(#%$sfd) => (lambda (sfd) (make-source-object sfd 0 0))]
+          [else #f]))
        (new
+        ;; TODO should we keep a count of hits for source in source table?
         (make-source-table)
         (make-eq-hashtable)
-        (cond
-         [(#%$sfd) => (lambda (sfd) (make-source-object sfd 0 0))]
-         [else #f]))))))
+        (cons default-src '()))))))
 
 (define-record-type identifier-info
   (nongenerative #{identifier-info nfne4i66hgd1aupfouk6yvuxc-1})
@@ -185,23 +188,26 @@
              x))))
   )
 
-(define (get-common-src sm x)
+(define (get-src-cell sm x)
   (cond
    [(TODO-FIXME x) =>
     (lambda (src)
-      (let ([cell (source-table-cell (source-map-st sm) src 0)])
-        (set-cdr! cell (+ 1 (cdr cell)))
-        ;; reuse key, in effect hash consing
-        (car cell)))]
-   ;; TODO should we keep score here as above? right now folks would have to lookup src in source-map-st to get count
-   [else (source-map-default-src sm)]))
+      (source-table-cell (source-map-st sm) src '()))]
+   [else (source-map-default-cell sm)]))
 
+(define reuse-src car)
+
+(define (get-common-src sm x)
+  ;; reuse key, in effect hash consing
+  (reuse-src (get-src-cell sm x)))
+
+;; TODO what the heck was I thinking? we need to use the key and maybe the kind and we probably want to do that within the source-table cell
 (define (get-or-add-identifier-info! sm kind key name def-src)
   ;; TODO will likely pull fields out into parent record
   ;;      *BUT* eq? may not work for name if we extend this to contour
   (define source-info-name identifier-info-name)          
   (define source-info-kind identifier-info-kind)          
-  (define (reuse si)
+  (define (matches si)
     ;; TODO consider how to deduplicate source-info nodes
     ;;      - may be pointless to represent each unique graph of references that occurs during expansion
     ;;      - folks interact w/ source, so we may need to coalesce based on source info
@@ -215,16 +221,19 @@
     (and (eq? (source-info-name si) name)
          (eq? (source-info-kind si) kind)
          si))
-  (let ([cell (eq-hashtable-cell (source-map-key->node sm) key '())]
-        [src (get-common-src sm def-src)])
-    (let find ([p (cdr cell)])
-      (cond
-       [(null? p)
-        (let ([si (make-identifier-info name kind src)])
-          (set-cdr! cell (cons si (cdr cell)))
-          si)]
-       [(reuse (car p))]
-       [else (find (cdr p))]))))
+  (let ([cell (hashtable-cell (source-map-key->node sm) key #f)])
+    (or (cdr cell)
+        (let ([src-cell (get-src-cell sm def-src)])
+          (let find ([p (cdr src-cell)])
+            (cond
+             [(null? p)
+              (let ([si (make-identifier-info name kind (reuse-src src-cell))])
+                (set-cdr! src-cell (cons si (cdr src-cell)))
+                (set-cdr! cell si)
+                si)]
+             [(matches (car p)) =>
+              (lambda (si) (set-cdr! cell si) si)]
+             [else (find (cdr p))]))))))
 
 (define (cons-uniq x ls) ;; add counts?
   (if (memq x ls)
