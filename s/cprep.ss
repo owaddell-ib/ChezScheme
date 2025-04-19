@@ -374,15 +374,10 @@
   (set-who! $extract-source
     (lambda (x)
       (define sm (make-source-map))  ;; TODO we'd probably pass this in
-      ;; TODO rewrite and rename all of this
-      (define (record! what src)
-        (when src
-          (source-table-set! st src what)))
       ;; NB: the output should be *, but nanopass won't autogenerate the pass
       (define-pass record-source! : Lsrc (ir) -> Lsrc ()
         (Expr : Expr (ir) -> Expr ()
 ;;        [(case-lambda ,preinfo ,[cl] ...)
-;;         ;; TODO simplify record! if this is our only case
 ;;         (record! 'case-lambda (preinfo-src preinfo))
 ;;         ir]
           [(call ,preinfo ,pr (quote ,d))
