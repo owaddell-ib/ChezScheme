@@ -366,7 +366,7 @@
 
 (define $source-map ($make-thread-parameter #f))
 
-(define-syntax maybe-source!
+(define-syntax when-source-map
   (syntax-rules (=>)
     [(_ sm => e0 e1 ...)
      (identifier? #'sm)
@@ -538,7 +538,7 @@
     (lambda (src fmls body)
       (define (return fmls iface body)
         ;; TODO for now record lambda clause in contours; eventually we may just want the one in cprep.ss $extract-source
-        (maybe-source! sm => (add-contour! src 'lambda sm fmls))
+        (when-source-map sm => (add-contour! src 'lambda sm fmls))
         (in-context CaseLambdaClause
           `(clause (,fmls ...) ,iface ,body)))
       (let f ((ids fmls) (n 0))
@@ -637,7 +637,7 @@
 (define build-lexical-reference
   (lambda (ae prelex)
     (let ([src (ae->src ae)])
-      (maybe-source! sm => (add-lexical-ref! sm src prelex)) ;; TODO defer to $extract-source ?
+      (when-source-map sm => (add-lexical-ref! sm src prelex)) ;; TODO defer to $extract-source ?
       (if (prelex-referenced prelex)
          (set-prelex-multiply-referenced! prelex #t)
          (set-prelex-referenced! prelex #t))
@@ -646,7 +646,7 @@
 (define build-lexical-assignment
   (lambda (ae id var exp)
     (let ([src (ae->src ae)])
-      (maybe-source! sm => (add-lexical-set! sm (TODO-FIXME id) var)) ;; TODO defer to $extract-source ?
+      (when-source-map sm => (add-lexical-set! sm (TODO-FIXME id) var)) ;; TODO defer to $extract-source ?
       (set-prelex-assigned! var #t)
       (build-profile ae `(set! ,src ,var ,exp)))))
 
@@ -660,14 +660,14 @@
 (define build-primitive-reference
   (lambda (ae name)
     (let ([level (fxmax (optimize-level) 2)])
-      (maybe-source! sm => (add-prim-ref! sm (ae->src ae) name level))
+      (when-source-map sm => (add-prim-ref! sm (ae->src ae) name level))
       (if ($suppress-primitive-inlining)
           (build-primcall ae 3 '$top-level-value `(quote ,name))
           (build-profile ae (lookup-primref level name))))))
 
 (define build-primitive-assignment
   (lambda (ae name val)
-    (maybe-source! sm => (add-global-set! sm (ae->src ae) name))
+    (when-source-map sm => (add-global-set! sm (ae->src ae) name))
     (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val)))
 
 (module (build-global-reference build-global-assignment)
@@ -680,13 +680,13 @@
   (define build-global-reference
     (lambda (ae name safe?)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "reference to" name))
-      (maybe-source! sm => (add-global-ref! sm (ae->src ae) name))
+      (when-source-map sm => (add-global-ref! sm (ae->src ae) name))
       (build-primcall ae (if (or safe? (fx= (optimize-level) 3)) 3 2) '$top-level-value `(quote ,name))))
 
   (define build-global-assignment
     (lambda (ae id-src name val)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "assignment to" name))
-      (maybe-source! sm => (add-global-set! sm (TODO-FIXME id-src) name))
+      (when-source-map sm => (add-global-set! sm (TODO-FIXME id-src) name))
       (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val))))
 
 (define build-cte-install
@@ -776,7 +776,7 @@
     (let ([pr ($sgetprop name (if (eqv? level 2) '*prim2* '*prim3*) #f)])
       (and pr
            (begin
-             (maybe-source! sm => (add-prim-ref! sm (ae->src ae) name level))
+             (when-source-map sm => (add-prim-ref! sm (ae->src ae) name level))
              (build-profile ae pr))))))
 
 (define build-data
@@ -825,7 +825,7 @@
 
 (define build-letrec
   (lambda (ae vars val-exps body-exp)
-    (maybe-source! sm => (add-contour! (ae->src ae) 'letrec sm vars))
+    (when-source-map sm => (add-contour! (ae->src ae) 'letrec sm vars))
     (build-profile ae
       (if (null? vars)
           body-exp
@@ -833,7 +833,7 @@
 
 (define build-letrec*
   (lambda (ae vars val-exps body-exp)
-    (maybe-source! sm => (add-contour! (ae->src ae) 'letrec* sm vars))
+    (when-source-map sm => (add-contour! (ae->src ae) 'letrec* sm vars))
     (build-profile ae
       (if (null? vars)
           body-exp
@@ -846,7 +846,7 @@
 
 (define build-top-module
   (lambda (ae types vars val-exps body-exp)
-    ;; TODO revert the changes here and do something more like the maybe-source! in chi-top-library where we
+    ;; TODO revert the changes here and do something more like the when-source-map in chi-top-library where we
     ;;      call build-library-body ? (maybe this is just something that add-realm! should do?)
     (if (internal-defines-as-letrec*)
         (let-values ([(vars val-exps)
@@ -1933,7 +1933,7 @@
                     [type (binding-type b)])
                (case type
                  [(macro macro!)
-                  (maybe-source! sm => (add-syntax-ref! sm first label))
+                  (when-source-map sm => (add-syntax-ref! sm first label))
                   (syntax-type (chi-macro (binding-value b) e r w ae rib)
                     r empty-wrap ae rib)]
                  [(core) (values type (binding-value b) e w ae)]
@@ -1967,7 +1967,7 @@
          (case type
            [(macro macro!)
             ;; TODO need to work harder to preserve source here (see annotation? case above)
-            (maybe-source! sm => (add-syntax-ref! sm e label))
+            (when-source-map sm => (add-syntax-ref! sm e label))
             (syntax-type (chi-macro (binding-value b) e r w ae rib)
               r empty-wrap ae rib)]
            [else (values type (binding-value b) e w ae)]))]
@@ -2084,7 +2084,7 @@
                                          (wrap-marks (syntax-object-wrap id))
                                          top-ribcage)])
                            (extend-ribcage! ribcage id label)
-                           (maybe-source! sm => (add-syntax-def! sm id label))
+                           (when-source-map sm => (add-syntax-def! sm id label))
                            (unless (eq? (id->label id empty-wrap) label)
                             ; must be an enclosing local-syntax binding for id
                              (syntax-error (source-wrap e w ae)
@@ -2143,7 +2143,7 @@
                                (fluid-let ([require-import (propagating-library-collector require-import #f)]
                                            [require-visit (library-collector #f)])
                                  (let-values ([(mid tid imps) (determine-imports (car impspec*) r std?)])
-                                   (maybe-source! sm => (add-import! sm mid (car impspec*)))
+                                   (when-source-map sm => (add-import! sm mid (car impspec*)))
                                    (let ([bf* (process-impspecs (cdr impspec*))])
                                      (if (import-interface? imps)
                                          (extend-ribcage-subst! ribcage imps)
@@ -2171,7 +2171,7 @@
                          (unless (eq? (id->label new-id empty-wrap) (label/pl->label label/pl))
                           ; must be an enclosing local-syntax binding for new-id
                            (syntax-error (source-wrap e w ae) "definition not permitted"))
-                         (maybe-source! sm => (add-alias! sm new-id old-id))
+                         (when-source-map sm => (add-alias! sm new-id old-id))
                          (parse (cdr frob*)
                            (let ([id (make-resolved-id (id-sym-name new-id) (wrap-marks (syntax-object-wrap new-id)) label/pl)])
                              (cons (bodit-alias id) bf*))
@@ -2808,7 +2808,7 @@
                                 (build-lambda/lift-barrier no-source '()
                                   (build-library-body ae dl* db* dv* de*
                                     (build-sequence no-source `(,@inits ,(build-void)))))))))
-                        (maybe-source! sm =>
+                        (when-source-map sm =>
                           (add-realm! (TODO-FIXME ae) sm library-uid library-path library-version
                             iface-vector (map libreq-uid import-req*)
                             (fold-left
@@ -3028,7 +3028,7 @@
                ; other errors that might explain why exports are actually missing
                 (chexports)
 
-                (maybe-source! sm =>
+                (when-source-map sm =>
                   (add-realm! (TODO-FIXME ae) sm (parse-module-name orig) '() '() iface-vector '()
                     ;; TODO this might be wrong; can't remember how it works, maybe we set-top-level-value! here also?
                     '()))
@@ -3379,7 +3379,7 @@
                           [label (gen-global-label (id-sym-name id))]
                           [exp (not-at-top (meta-chi rhs r w))])
                      (extend-ribcage! ribcage id label)
-                     (maybe-source! sm => (add-syntax-def! sm id label))
+                     (when-source-map sm => (add-syntax-def! sm id label))
                      (unless (eq? (id->label id empty-wrap) label)
                       ; must be an enclosing local-syntax binding for id
                        (syntax-error (source-wrap e w ae)
@@ -3432,7 +3432,7 @@
                           ; must be an enclosing local-syntax binding for id
                            (syntax-error orig "definition not permitted"))
                          (record-id! defn-table id label)
-                         (maybe-source! sm =>
+                         (when-source-map sm =>
                            (add-realm! (TODO-FIXME ae) sm (parse-module-name e) '() '() *iface-vector '()
                              ;; TODO maybe wrong, can't remember how it works
                              '()))
@@ -3449,7 +3449,7 @@
                      (if (null? impspec*)
                          (when only? (for-each (lambda (tid) (extend-ribcage-barrier! ribcage tid)) tid*))
                          (let-values ([(mid tid imps) (determine-imports (car impspec*) r std?)])
-                           (maybe-source! sm => (add-import! sm mid (car impspec*)))
+                           (when-source-map sm => (add-import! sm mid (car impspec*)))
                            (process-impspecs (cdr impspec*) (cons tid tid*))
                            (if (import-interface? imps)
                                (begin
@@ -3484,7 +3484,7 @@
                        (syntax-error (source-wrap e w ae)
                          "definition not permitted"))
                      (record-id! defn-table new-id label)
-                     (maybe-source! sm => (add-alias! sm new-id old-id))
+                     (when-source-map sm => (add-alias! sm new-id old-id))
                      (parse (cdr body) mb* inits chexports
                        #f expspec** iexport* impind? label*)))]
                 [(begin-form)
@@ -3987,7 +3987,7 @@
                                   (defer-or-eval-transformer 'define-syntax local-eval-hook
                                     (meta-chi rhs r w))
                                   (fxlognot (meta-level)))])
-                     (maybe-source! sm => (add-syntax-def! sm id label))
+                     (when-source-map sm => (add-syntax-def! sm id label))
                      (record-id! defn-table id label)
                      (extend-ribcage! ribcage id label)
                      (unless (eq? (id->label id empty-wrap) label)
@@ -4020,7 +4020,7 @@
                      (if (null? impspec*)
                          (when only? (for-each (lambda (tid) (extend-ribcage-barrier! ribcage tid)) tid*))
                          (let-values ([(mid tid imps) (determine-imports (car impspec*) r std?)])
-                           (maybe-source! sm => (add-import! sm mid (car impspec*)))
+                           (when-source-map sm => (add-import! sm mid (car impspec*)))
                            (process-impspecs (cdr impspec*) (cons tid tid*))
                            (if (import-interface? imps)
                                (begin
@@ -4039,7 +4039,7 @@
                                      (map (lambda (d) (make-frob d meta?)) forms)
                                      r #t label*)]
                                  [(exports exports-to-check iface-vector) (determine-exports 'module orig *expspec** r)])
-                     (maybe-source! sm =>
+                     (when-source-map sm =>
                        (add-realm! (TODO-FIXME ae) sm (parse-module-name e) '() '() iface-vector '() '()))
                     ; valid bound ids checked already by chi-internal
                      (let ([iface (make-interface (wrap-marks (syntax-object-wrap id)) iface-vector)]
@@ -4092,7 +4092,7 @@
                       ; must be an enclosing local-syntax binding for new-id
                        (syntax-error (source-wrap e w ae)
                          "definition not permitted"))
-                     (maybe-source! sm => (add-alias! sm new-id old-id))
+                     (when-source-map sm => (add-alias! sm new-id old-id))
                      (record-id! defn-table new-id label)
                      (parse (cdr body)
                        vars
@@ -4632,7 +4632,7 @@
           (let ([labels (map (lambda (id)
                                (make-local-label displaced-lexical-binding (fxlognot (meta-level))))
                           ids)])
-            (maybe-source! sm =>
+            (when-source-map sm =>
               (for-each (lambda (id label) (add-syntax-def! sm id label))
                 ids labels))
             (let ([new-w (make-binding-wrap ids labels w)])
@@ -6173,7 +6173,7 @@
                  ((displaced-lexical) (displaced-lexical-error (wrap id w) "bind" (binding-value b))))))
            (syntax (var ...))
            label*)
-         (maybe-source! sm =>
+         (when-source-map sm =>
            (for-each (lambda (label var) (add-syntax-set! sm var label))
              label* (syntax (var ...))))
          (let ([b* (map (lambda (x)
