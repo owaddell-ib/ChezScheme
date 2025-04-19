@@ -342,9 +342,10 @@
       (Lexpand-to-go x record-coverage-info!)))
 
   ;; NOTE on the $extract-source design explored here
-  ;;      - pro: can extract source information from the .sx file; fewer files to juggle
+  ;;      - pro: can extract (SOME) source information from the .sx file; fewer files to juggle
   ;;      - pro: source info is circumscribed by what we residualized; easier to manage than the "accumulate log" model
   ;;      - pro: could apply this to other Lsrc output, after cp0, for example
+  ;;      - con: cases where we've already dropped source by the time we get here; don't want to fatten up all ir forms
   ;;      - con: maintenance overhead; we'll have to work harder here to uncover source; e.g., for primitive references
   ;;             we'd have to look for
   ;;             - (call ,src ,pr ,e1* ...)
@@ -356,6 +357,9 @@
   ;;                   (compile-profile) is not 'source   ;; default is #f
   ;;                 or
   ;;                   (generate-profile-forms) is false
+  ;;             - OTOH, could sc-expand stash rator src in preinfo-call for the specific case where we build (call ,pr ...) or its equivalent?
+  ;;               - nah, still rubbish for higher-order primrefs
+  ;;      - caveat: maintenance overhead; we'll have to work harder here to uncover source; e.g., for primitive references
   ;;      - also: need to figure out how to capture meta information and that won't end up in .sx file right now
   ;; TODO for EXPERIMENT alt to embedding hook in syntax.ss
   ;;      - build def-use from prelex
@@ -369,93 +373,35 @@
   ;;      - hmm, how will we get info about library forms; may have to dig into recompile info?
   (set-who! $extract-source
     (lambda (x)
-      ;; TODO decide how to share this with syntax.ss      
-      (define (prelex->src prelex)
-        (ae->src (prelex-source prelex)))
-      (define st (make-source-table)) ;; TODO still not sure what we want
-      (define lexical-bindings (make-eq-hashtable))
-      (define global-bindings (make-eq-hashtable))
-
-      ;; TODO figure out how to share this with syntax.ss      
-      (define-record-type lexical-info
-        (nongenerative #{lexical-info ble5klpzns025alnatm0ydav9-0})
-        (fields (immutable name) (immutable bind-src) (mutable ref-src*) (mutable set-src*))
-        (protocol
-         (lambda (new)
-           (lambda (prelex)
-             (new (prelex-name prelex) (prelex->src prelex) '() '())))))
-      ;; TODO do we care about meta-level for globals?
-      (define-record-type global-info
-        (nongenerative #{global-info ble5klpzns025alnatm0ydav9-1})
-        (fields (immutable name) (mutable ref-src*) (mutable set-src*))
-        (protocol
-         (lambda (new)
-           (lambda (name)
-             (new name '() '())))))
-
-      ;; TODO figure out how to share this with syntax.ss      
+      (define sm (make-source-map))  ;; TODO we'd probably pass this in
       ;; TODO rewrite and rename all of this
       (define (record! what src)
         (when src
           (source-table-set! st src what)))
-      (define (record-prelex-binding! x)
-        (hashtable-set! lexical-bindings x (make-lexical-info x)))
-      (define (record-prelex-use! x maybe-src set-field! get-field)
-        (cond
-         [(hashtable-ref lexical-bindings x #f) =>
-          (lambda (linfo)
-            ;; TODO hmm, maybe we don't want to just cons these on since there are often many duplicate sources
-            ;;      e.g., for macro helpers
-            (set-field! linfo (cons maybe-src (get-field linfo))))]
-         [else ($oops who "use of prelex with no binding?! ~s" x)]))
-      (define (record-global-info! name preinfo get-field set-field!)
-        (let ([gi (get-or-add! global-bindings name make-global-info)])
-          (set-field! gi (cons (preinfo-src preinfo) (get-field gi)))))
-      (define (get-or-add! table key make)
-        (let ([cell (eq-hashtable-cell table key #f)])
-          (or (cdr cell)
-              (let ([x (make key)])
-                (set-cdr! cell x)
-                x))))
       ;; NB: the output should be *, but nanopass won't autogenerate the pass
       (define-pass record-source! : Lsrc (ir) -> Lsrc ()
         (Expr : Expr (ir) -> Expr ()
-          [(case-lambda ,preinfo ,[cl] ...)
-           ;; TODO simplify record! if this is our only case
-           (record! 'case-lambda (preinfo-src preinfo))
-           ir]
+;;        [(case-lambda ,preinfo ,[cl] ...)
+;;         ;; TODO simplify record! if this is our only case
+;;         (record! 'case-lambda (preinfo-src preinfo))
+;;         ir]
           [(call ,preinfo ,pr (quote ,d))
-           ;; we don't care about calls to top-level-value with env argument
+           ;; ignore calls to top-level-value with env argument
            (when (memq (primref-name pr) '($top-level-value top-level-value))
-             (record-global-info! d preinfo global-info-ref-src* global-info-ref-src*-set!))
+             (add-global-ref! sm (preinfo-src preinfo) d))
            ir]
           [(call ,preinfo ,pr (quote ,d) ,[e2])
-           ;; we don't care about calls to sets-top-level-value! with env argument
+           ;; ignore calls to set-top-level-value! with env argument
            (when (memq (primref-name pr) '($set-top-level-value! set-top-level-value!))
-             (record-global-info! d preinfo global-info-set-src* global-info-set-src*-set!))
+             (add-global-set! sm (preinfo-src preinfo) d))
            ir]
           [(ref ,maybe-src ,x)
-           (record-prelex-use! x maybe-src lexical-info-ref-src*-set! lexical-info-ref-src*)
+           (add-lexical-ref! sm maybe-src x)
            ir]
           [(set! ,maybe-src ,x ,[e])
-           (record-prelex-use! x maybe-src lexical-info-set-src*-set! lexical-info-set-src*)
-           ir]
-          [(letrec ([,x* ,e*] ...) ,body)
-           (for-each record-prelex-binding! x*)
-           `(letrec ([,x* ,(map Expr e*)] ...) ,(Expr body))]
-          [(letrec* ([,x* ,e*] ...) ,body)
-           (for-each record-prelex-binding! x*)
-           `(letrec* ([,x* ,(map Expr e*)] ...) ,(Expr body))])
-        (CaseLambdaClause : CaseLambdaClause (ir) -> CaseLambdaClause ()
-          [(clause (,x* ...) ,interface ,body)
-           ;; TODO we could pass in preinfo-src from lambda, but is it useful?
-           (for-each record-prelex-binding! x*)
-           (Expr body)
+           (add-lexical-set! sm maybe-src x)
            ir]))
+      ;; TODO should we process library/rt to help identify global-set!s that install library exports?
       (Lexpand-to-go x record-source!)
-      (values st
-        (hashtable-values lexical-bindings)
-        ;; TODO sadly up to client to weed out global assignments that install library exports
-        ;;      (now recording the ids in the realm)
-        (hashtable-values global-bindings))))
+      sm))
   )

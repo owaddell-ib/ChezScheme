@@ -152,6 +152,11 @@
     (nongenerative #{preinfo-lambda hhv0qzgdqfvjgms8nm7y4bf9w-0})
     (parent preinfo)
     (sealed #t)
+    ;; TODO consider adding clause-src* holding source for individual case-lambda clauses (if multiple) in assv list ((interface . clause-src) ...)
+    ;;      (we could prune it in cp0, but probably not worth doing)
+    ;;      having this would help $extract-source provide more useful information about the bfp / efp "scope" of bound vars
+    ;;      --> for now, maybe we simply have sc-expand record "contour" since letrec and letrec* also have no source by the time
+    ;;          we reach $extract-source
     (fields libspec name flags)
     (protocol
       (lambda (pargs->new)
