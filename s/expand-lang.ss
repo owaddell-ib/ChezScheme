@@ -122,7 +122,7 @@
    ;; TODO we could walk the table move nodes whose key is not a symbol into a separate
    ;;      list of nodes that don't need linking beyond the current file
    (immutable key->node)  ;; TODO rename; hashtable mapping {symbol|prelex|local-label} -> source-info
-   (immutable default-src))
+   (immutable default-src)) ;; ?? at any point we're extending source map for at most one ($sfd)
   ;; TODO make this record type opaque / sealed
   (protocol
    (lambda (new)
@@ -160,9 +160,10 @@
    ;; TODO are name / kind going to be common fields of a parent source-info record type?
    (immutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
    (immutable kind)     ;; lambda | letrec | letrec* | module | library
-   (immutable import*)  ;; (src ...)  ;; TODO more generally: (node ...) ??
-   (immutable export*)  ;; (identifier-info ...)
+   (immutable src)      ;; bfp/efp for region: e.g., individual case-lambda clause
    (immutable bound*)   ;; (identifier-info ...)
+   (immutable import*)  ;; edges showing where we were imported (src ...)  ;; TODO more generally: (node ...) ??
+   (immutable export*)  ;; (identifier-info ...)
    ))
 
 (define (get-or-add-identifier-info! sm kind key name def-src)
