@@ -135,6 +135,8 @@
         ;; TODO should we keep a count of hits for source in source table?
         (make-source-table)
         (make-eq-hashtable)
+        ;; TODO this is misguided: we don't want client to merge everything w/ same source when we can clearly distinguish references prelex for which we have no source
+        ;;      still, it's kind of neat to see that file foo.ss contains a reference to our identifier bar somewhere
         (cons default-src '()))))))
 
 (define-record-type identifier-info
@@ -192,6 +194,9 @@
   (cond
    [(TODO-FIXME x) =>
     (lambda (src)
+      ;; TODO this model, where we extend w/ list of source-infos means we have a lot of cells of the form (src . ()) because that src is used only as a reference
+      ;;      so we might want to prune those when we dump the source table; for which it might be nice to have source-table-fold instead of just dump
+      ;;      reason to keep those cells around would be to continue commonizing that src, but that probably doesn't matter across files
       (source-table-cell (source-map-st sm) src '()))]
    [else (source-map-default-cell sm)]))
 
