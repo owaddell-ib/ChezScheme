@@ -1954,20 +1954,12 @@
                ;;            and it could resolve those bits each time
                ;;          - mark all of that stuff as originating in the scheme / chezscheme library
                ;;            - how do r6rs libraries and such fit into all of that (barf)
+               ;;        - would have to ponder more how to recognize system stuff
+               ;;          - obvious for 'core etc.
+               ;;          - but for 'macro maybe we check whether (eq? label (syntax->datum first))
                (case type
                  [(macro macro!)
-                  (when-source-map sm =>
-                    ;; don't log use of built-in non-core transformers, like identifier-syntax, so they appear
-                    ;; more like conventional language keywords
-                    ;; TODO OTOH we could hoist or add a when-source-map just above (case type ...)
-                    ;;      and log use of all keywords: core, alias, module, etc.
-                    ;;      [maybe we want that as Chez Scheme developers]
-                    ;;      currently thinking it would be noise and confusion to highlight these things
-                    ;;      [would a C programmer expect to have all references to "for" light up?]
-                    ;; TODO hmm, OTOH, maybe it would be helpful to mark these things as "system-provided"
-                    ;;      for the sake of syntax highlighters
-                    (unless (#%$system-procedure? (binding-value b))
-                      (add-syntax-ref! sm first label)))
+                  (when-source-map sm => (add-syntax-ref! sm first label))
                   (syntax-type (chi-macro (binding-value b) e r w ae rib)
                     r empty-wrap ae rib)]
                  [(core) (values type (binding-value b) e w ae)]
