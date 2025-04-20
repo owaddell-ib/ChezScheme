@@ -114,7 +114,7 @@
       (program uid body))))
 
 (define-record-type source-map
-  (nongenerative #{source-map lv8ml2z2kzyg0qqg38i103apk-0})
+  (nongenerative #{source-map 2lv8mlz2kzyg0qqg338ia10pk-0})
   (fields
    ;; TODO well, darn: fasl-write doesn't like source tables
    ;;                  but we could (fasl-write (source-table-dump st) op)
@@ -122,6 +122,7 @@
    ;; TODO we could walk the table move nodes whose key is not a symbol into a separate
    ;;      list of nodes that don't need linking beyond the current file
    (immutable key->node)  ;; TODO rename; hashtable mapping {symbol|prelex|local-label} -> source-info
+   (immutable prim->node)
    (immutable default-cell)) ;; ?? at any point we're extending source map for at most one ($sfd)
   ;; TODO make this record type opaque / sealed
   (protocol
@@ -135,9 +136,13 @@
         ;; TODO should we keep a count of hits for source in source table?
         (make-source-table)
         (make-eq-hashtable)
+        (make-eq-hashtable)
         ;; TODO this is misguided: we don't want client to merge everything w/ same source when we can clearly distinguish references prelex for which we have no source
         ;;      still, it's kind of neat to see that file foo.ss contains a reference to our identifier bar somewhere
         (cons default-src '()))))))
+
+;; TODO should we have some notion of approximate "vicinity" source to fall back on
+;;      - e.g., for global-set! of library export, if no source, point at source for the identifier where we exported it
 
 (define-record-type identifier-info
   (nongenerative #{identifier-info nfne4i66hgd1aupfouk6yvuxc-1})
@@ -207,7 +212,26 @@
   (reuse-src (get-src-cell sm x)))
 
 ;; TODO what the heck was I thinking? we need to use the key and maybe the kind and we probably want to do that within the source-table cell
+(define (get-or-add-node! sm get-table kind key name def-src get-or-add!)
+  (let ([cell (hashtable-cell (get-table sm) key #f)])
+    (or (cdr cell)
+        (let ([si (get-or-add! sm kind key name def-src)])
+          (set-cdr! cell si)
+          si))))
+
 (define (get-or-add-identifier-info! sm kind key name def-src)
+  (get-or-add-node! sm source-map-key->node kind key name def-src
+    get-or-add-node-by-source!))
+
+(define (get-or-add-prim-info! sm kind name)
+  ;; name is the key; we don't have source
+  (get-or-add-node! sm source-map-prim->node kind name name #f
+    (lambda (sm kind key name def-src)
+      ;; punt on def-src for primitives
+      (make-identifier-info name kind #f))))
+
+;; TODO rename / abstract since this currently talks about identifier-info ???
+(define (get-or-add-node-by-source! sm kind key name def-src)
   ;; TODO will likely pull fields out into parent record
   ;;      *BUT* eq? may not work for name if we extend this to contour
   (define source-info-name identifier-info-name)          
@@ -226,19 +250,15 @@
     (and (eq? (source-info-name si) name)
          (eq? (source-info-kind si) kind)
          si))
-  (let ([cell (hashtable-cell (source-map-key->node sm) key #f)])
-    (or (cdr cell)
-        (let ([src-cell (get-src-cell sm def-src)])
-          (let find ([p (cdr src-cell)])
-            (cond
-             [(null? p)
-              (let ([si (make-identifier-info name kind (reuse-src src-cell))])
-                (set-cdr! src-cell (cons si (cdr src-cell)))
-                (set-cdr! cell si)
-                si)]
-             [(matches (car p)) =>
-              (lambda (si) (set-cdr! cell si) si)]
-             [else (find (cdr p))]))))))
+  (let ([src-cell (get-src-cell sm def-src)])
+    (let find ([p (cdr src-cell)])
+      (cond
+       [(null? p)
+        (let ([si (make-identifier-info name kind (reuse-src src-cell))])
+          (set-cdr! src-cell (cons si (cdr src-cell)))
+          si)]
+       [(matches (car p))]
+       [else (find (cdr p))]))))
 
 (define (cons-uniq x ls) ;; add counts?
   (if (memq x ls)

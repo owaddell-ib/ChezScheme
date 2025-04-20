@@ -395,14 +395,13 @@
   (let ([si (get-syntax-id-info! sm label id)])
     (add-identifier-info-def! sm si id)))
 
-;; TODO reword comment
-;; expander boils away primref source, so we need to track these here
+;; expander boils away primref source, so track it here, not in later pass
 (define (add-prim-ref! sm src name level)  ;; TODO decide on suitable order for arguments
   (let* ([kind (if (fx= level 3) 'unsafe-prim 'safe-prim)]
          ;; TODO misguided: in practice we never have source for primref (unless we find a way to wire in for Chez Scheme)
          ;;                 - hence right now, these will all end up in source-map-default-cell, swelling that bucket needlessly
          ;;                 - maybe instead we just dump them in a prims hashtable where we know we'll have a hit
-         [si (get-or-add-identifier-info! sm kind name name #f)])
+         [si (get-or-add-prim-info! sm kind name)])
     ;; TODO someday get def src for Chez Scheme primitives
     (add-identifier-ref! sm si src)))
 
