@@ -2069,6 +2069,7 @@
           (if (null? frob*)
               (values (reverse bf*) label*)
               (let* ([fr (car frob*)] [e (frob-e fr)] [meta? (frob-meta? fr)])
+                (when-source-map sm => (printf "chi-top ---- e=~s\n" e))     
                 (let-values ([(type value e w ae) (syntax-type e r empty-wrap no-source ribcage)])
                   (case type
                     [(define-form)
@@ -3393,6 +3394,7 @@
       (if (null? body)
           (return mb* inits chexports expspec** iexport* impind? label*)
           (let* ([fr (car body)] [e (frob-e fr)] [meta? (frob-meta? fr)])
+            (when-source-map sm => (printf "chi-external ---- e=~s\n" e))     
             (let-values ([(type value e w ae) (syntax-type e r empty-wrap no-source ribcage)])
               (case type
                 [(define-form)
@@ -3721,6 +3723,7 @@
 
 (define chi
   (lambda (e r w)
+    (when-source-map sm => (printf "chi ---- e=~s\n" e))     
     (let-values ([(type value e w ae) (syntax-type e r w no-source #f)])
       (chi-expr type value e r w ae))))
 
@@ -3730,6 +3733,7 @@
       ((lexical) (build-lexical-reference ae value))
       ((core) (value e r w ae))
       ((call)
+       (when-source-map sm => (printf "chi-expr call case ---- (car e)=~s\n" (car e)))     
        (chi-application
          (let-values ([(type value e w ae) (syntax-type (car e) r w no-source #f)])
            (case type
@@ -3824,6 +3828,7 @@
          (case (binding-type b)
            ((macro!)
             (let ((id (wrap (syntax id) w)) (val (wrap (syntax val) w)))
+              (when-source-map sm => (printf "chi-set! will call syntax-type on macro output ---- e=~s\n" e))     
               (syntax-type (chi-macro (binding-value b)
                              `(,(syntax set!) ,id ,val)
                              r empty-wrap #f rib)
@@ -4001,6 +4006,7 @@
       (if (null? body)
           (return body vars vals inits expspec** iexport* chexports label*)
           (let* ([fr (car body)] [e (frob-e fr)] [meta? (frob-meta? fr)])
+            (when-source-map sm => (printf "chi-internal ---- e=~s\n" e))     
             (let-values ([(type value e w ae) (syntax-type e r empty-wrap no-source ribcage)])
               (case type
                 [(define-form)
