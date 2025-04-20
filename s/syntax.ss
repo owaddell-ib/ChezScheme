@@ -1939,6 +1939,10 @@
          [b (lookup label r)]
          [type (binding-type b)])
     (when-source-map sm =>
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ;;;  CAREFUL with this notion: syntax-type may be called multiple times on same input
+      ;;;  e.g., at boundary between definitions and expressions
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         
       (define HACK-types-table                   
         (let ([cell (hashtable-cell (source-map-key->node sm) '*HACK-to-avoid-boostrapping-again* #f)])
