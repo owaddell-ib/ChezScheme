@@ -1943,6 +1943,17 @@
              (let* ([label (id->label first w)]
                     [b (lookup label r)]
                     [type (binding-type b)])
+               ;; TODO maybe abstract the let* above out into a helper that we call down in the (symbol? e) case
+               ;;      - within helper, check when-source-map
+               ;;      - when sm: look at type, binding, label and decide whether / how to log reference
+               ;;        - for example, is it useful to know we have a library-global here or just rely on
+               ;;          the label to resolve to a library export, maybe global-set, and resolve def src that way
+               ;;        - could support flags to decide whether we want source map info for system-provided syntax
+               ;;          - how massive would that make the output?
+               ;;          - we'd have to commonize source, since we can expand a given macro hundreds of times
+               ;;            and it could resolve those bits each time
+               ;;          - mark all of that stuff as originating in the scheme / chezscheme library
+               ;;            - how do r6rs libraries and such fit into all of that (barf)
                (case type
                  [(macro macro!)
                   (when-source-map sm =>
