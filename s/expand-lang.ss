@@ -137,7 +137,7 @@
         (make-source-table)
         (make-eq-hashtable)
         (make-eq-hashtable)
-        ;; TODO this is misguided: we don't want client to merge everything w/ same source when we can clearly distinguish references prelex for which we have no source
+        ;; TODO using (default-src . '()) was misguided: we don't want client to merge everything w/ same source when we can clearly distinguish references prelex for which we have no source
         ;;      still, it's kind of neat to see that file foo.ss contains a reference to our identifier bar somewhere
         (cons default-src '()))))))
 
@@ -250,6 +250,10 @@
     (and (eq? (source-info-name si) name)
          (eq? (source-info-kind si) kind)
          si))
+  ;; TODO misguided; we don't want to commonize every #f src occurrence so they all appear to point at one another
+  ;;      - maybe use (list sfd key kind) as a hash key into equal-hash table
+  ;;        - and skip the #<source ... 0 0> hack?
+  ;;        - or do that wiring in a later phase?
   (let ([src-cell (get-src-cell sm def-src)])
     (let find ([p (cdr src-cell)])
       (cond
