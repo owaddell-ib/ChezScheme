@@ -1977,8 +1977,7 @@
               [type (binding-type b)])
          (case type
            [(macro macro!)
-            ;; TODO need to work harder to preserve source here (see annotation? case above)
-            (when-source-map sm => (add-syntax-ref! sm e label))
+            (when-source-map sm => (add-syntax-ref! sm ae label))
             (syntax-type (chi-macro (binding-value b) e r w ae rib)
               r empty-wrap ae rib)]
            [else (values type (binding-value b) e w ae)]))]
