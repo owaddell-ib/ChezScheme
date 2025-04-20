@@ -2174,6 +2174,7 @@
                                     [propval (top-level-eval-hook propvalexpr)]
                                     [binding (make-binding 'property propval)])
                                (extend-rho! r prop-label binding (fxlognot 0))
+                               ;; TODO record source info for id and key-id define-property (new edge type?)
                                (parse (cdr frob*)
                                  (cons
                                    (bodit-define-property (make-resolved-id (id-sym-name id) (id-marks id) id-label/pl)
@@ -3462,6 +3463,7 @@
                               [propval (top-level-eval-hook propvalexpr)]
                               [binding (make-binding 'property propval)])
                          (extend-rho! r prop-label binding (fxlognot 0))
+                         ;; TODO record source info for id and key-id define-property (new edge type?)
                          (parse (cdr body)
                            (cons (mbodit-define-property #t #f (make-resolved-id (id-sym-name id) (id-marks id) id-label/pl)
                                    (cons key-id-label prop-label) propval propvalexpr)
@@ -4131,6 +4133,7 @@
                          (syntax-error (source-wrap e w ae)
                            "definition not permitted"))
                        (record-property! defn-table id id-label)
+                       ;; TODO record source info for id and key-id define-property (new edge type?)
                        (parse (cdr body) vars vals inits expspec** iexport* chexports #f (cons prop-label label*)))))]
                 [(alias-form)
                  (let-values ([(new-id old-id) (parse-alias e w ae)])
