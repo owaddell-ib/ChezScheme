@@ -2408,6 +2408,11 @@
   ($reloc [flags single-valued])
   ($remake-rtd [flags single-valued])
   ($replace-source [sig [(source-object ptr) -> (ptr)]] [flags])
+  ;; TODO
+  ;;  - rename $make-source-map to make-source-map (didn't feel like dealing with the define-record-type collision
+  ;;  - move up near make-source-table
+  ;;  - investigate how to fix -> (ptr) below to be -> (source-map) the way make-source-table declaration does
+  ($make-source-map [sig [() -> (source-map)]] [flags unrestricted alloc])
   ($report-source-info [sig [() -> (maybe-procedure)] [(ptr) -> (void)]] [flags])
   ($report-string [flags single-valued])
   ($require-include [flags single-valued])

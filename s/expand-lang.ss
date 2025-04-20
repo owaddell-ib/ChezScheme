@@ -113,6 +113,11 @@
     (Program (prog)
       (program uid body))))
 
+;; TODO export machinery to
+;;      - make source-map
+;;      - merge them
+;;      - dump contents
+
 (define-record-type source-map
   (nongenerative #{source-map 2lv8mlz2kzyg0qqg338ia10pk-0})
   (fields

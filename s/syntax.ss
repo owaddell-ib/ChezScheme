@@ -393,6 +393,7 @@
 
 (define (add-syntax-def! sm id label)
   (let ([si (get-syntax-id-info! sm label id)])
+    (printf "add-syntax-def! label=~s id=~s\n" label id)         
     (add-identifier-info-def! sm si id)))
 
 ;; expander boils away primref source, so track it here, not in later pass
@@ -5520,6 +5521,10 @@
                  (get-lpinfo fn situation)))))
           (for-each (lambda (libdirs fn) (parameterize ([library-directories libdirs]) (check-fn! situation fn #f))) libdirs* fn*)))))
 
+  (set-who! $make-source-map
+    (lambda ()
+      (make-source-map)))
+
   (set-who! $report-source-info
     ($make-thread-parameter #f
       (lambda (x)
@@ -6991,7 +6996,14 @@
            (cadr x)
            (let ((ctem (initial-mode-set (eval-syntax-expanders-when) compiling-a-file))
                  (rtem (initial-mode-set '(load eval) compiling-a-file))
-                 (sm (and ($report-source-info) (make-source-map))))
+                 ;; TODO plumbing for passing in (or parameterize) the source-map to extend
+                 ;;      - current hack is that we'll return one when we call $report-source-info
+                 ;;        with zero args and we'll try to construct one at the right time
+                 ;;      - basically didn't want to plumb sm through compile.ss calls into expand; have to remember to update expand variant(s?) that are not sc-expand
+                 (sm (cond
+                      [($report-source-info) => (lambda (rsi) (rsi))]
+                      [else #f])))
+             (assert (or (not sm) (source-map? sm)))   
              (let ([x (at-top
                         (parameterize ([meta-level 0] [$source-map sm])
                           (chi-top* x
