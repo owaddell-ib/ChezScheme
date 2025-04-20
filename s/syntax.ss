@@ -1934,15 +1934,37 @@
 ;;; syntax-type expands macros and unwraps as necessary to get to
 ;;; one of the forms above.
 
+(define (resolve-id id r w src)
+  (let* ([label (id->label id w)]
+         [b (lookup label r)]
+         [type (binding-type b)])
+    (when-source-map sm =>
+        
+      (define HACK-types-table                   
+        (let ([cell (hashtable-cell (source-map-key->node sm) '*HACK-to-avoid-boostrapping-again* #f)])
+          (or (cdr cell)
+              (let ([tbl (make-eq-hashtable)])
+                (set-cdr! cell tbl)
+                tbl))))
+      (hashtable-update! HACK-types-table type
+        (lambda (prev)
+          (cons (if (identifier? id) id src) prev))
+        '())
+        
+      ;; TODO decide where and how to actually smash things
+      (printf "resolve-id ~@[~s ~]~s type=~s label=~s\n" (and (symbol? id) id) (TODO-FIXME src) type label)  
+      ;; TODO things to skip here:
+      ;;      - type == primitive  ;; let existing calls to add-prim-ref! determine safe/unsafe
+      )
+    (values label b type)))
+
 (define syntax-type
   (lambda (e r w ae rib)
     (cond
       [(pair? e)
        (let ([first (car e)])
          (if (id? first)
-             (let* ([label (id->label first w)]
-                    [b (lookup label r)]
-                    [type (binding-type b)])
+             (let-values ([(label b type) (resolve-id first r w first)])
                ;; TODO maybe abstract the let* above out into a helper that we call down in the (symbol? e) case
                ;;      - within helper, check when-source-map
                ;;      - when sm: look at type, binding, label and decide whether / how to log reference
@@ -1959,6 +1981,7 @@
                ;;          - but for 'macro maybe we check whether (eq? label (syntax->datum first))
                (case type
                  [(macro macro!)
+                  #;    
                   (when-source-map sm => (add-syntax-ref! sm first label))
                   (syntax-type (chi-macro (binding-value b) e r w ae rib)
                     r empty-wrap ae rib)]
@@ -1987,11 +2010,10 @@
       [(annotation? e)
        (syntax-type (annotation-expression e) r w e rib)]
       [(symbol? e)
-       (let* ([label (id->label e w)]
-              [b (lookup label r)]
-              [type (binding-type b)])
+       (let-values ([(label b type) (resolve-id e r w ae)])
          (case type
            [(macro macro!)
+            #;    
             (when-source-map sm => (add-syntax-ref! sm ae label))
             (syntax-type (chi-macro (binding-value b) e r w ae rib)
               r empty-wrap ae rib)]
@@ -6906,6 +6928,7 @@
                    (symbolic-id=? #'?import 'import)
                    #`($library #,orig #,library-path #,library-version #,uid
                         (implicit-exports #t)
+                        ;; TODO could consider transferring source from ?export to export and ?import to $import
                         (export ex ...)
                         ($import #,orig (im ...) #f #t)
                         form ...)]
