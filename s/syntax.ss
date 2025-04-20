@@ -397,14 +397,12 @@
     (add-identifier-info-def! sm si id)))
 
 ;; expander boils away primref source, so track it here, not in later pass
-(define (add-prim-ref! sm src name level)  ;; TODO decide on suitable order for arguments
-  (let* ([kind (if (fx= level 3) 'unsafe-prim 'safe-prim)]
-         ;; TODO misguided: in practice we never have source for primref (unless we find a way to wire in for Chez Scheme)
-         ;;                 - hence right now, these will all end up in source-map-default-cell, swelling that bucket needlessly
-         ;;                 - maybe instead we just dump them in a prims hashtable where we know we'll have a hit
-         [si (get-or-add-prim-info! sm kind name)])
-    ;; TODO someday get def src for Chez Scheme primitives
-    (add-identifier-ref! sm si src)))
+(define (add-prim-ref! sm src name level)
+  (let ([pi (get-or-add-prim-info! sm name)])
+    (case level
+      [(2) (add-node-use! sm pi src prim-info-safe* prim-info-safe*-set!)]
+      [(3) (add-node-use! sm pi src prim-info-unsafe* prim-info-unsafe*-set!)]
+      [else ($oops 'compiler-internal "unexpected primitive level ~s" level)])))
 
 ;; TODO look for existing mechanism for getting source
 ;; TODO recursion here based on syntax-object record-writer

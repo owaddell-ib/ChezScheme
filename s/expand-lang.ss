@@ -172,6 +172,17 @@
        ;;      (so we do it on demand) ;; OTOH, that might not give us a clean way to drop info related to sfd
        (new name kind def-src '() '())))))
 
+(define-record-type prim-info
+  (nongenerative #{prim-info hnfnegd1aupfouk6yvuxc466i-2})
+  (fields
+   (immutable name)     ;; symbol
+   (mutable safe*)      ;; (src ...)
+   (mutable unsafe*))   ;; (src ...)
+  (protocol
+   (lambda (new)
+     (lambda (name)
+       (new name '() '())))))
+
 (define-record-type contour-info
   (nongenerative #{contour-info nfne4i66hgd1aupfouk6yvuxc-2})
   (fields
@@ -228,12 +239,15 @@
   (get-or-add-node! sm source-map-key->node kind key name def-src
     get-or-add-node-by-source!))
 
-(define (get-or-add-prim-info! sm kind name)
+;; TODO oops, recent reorg ended up overwriting prim info for safe / unsafe variant
+;;      --> one option is to use the actual primref as the key; that's the whole point of primref, it bakes in o=2/3
+(define (get-or-add-prim-info! sm name)
   ;; name is the key; we don't have source
-  (get-or-add-node! sm source-map-prim->node kind name name #f
-    (lambda (sm kind key name def-src)
-      ;; punt on def-src for primitives
-      (make-identifier-info name kind #f))))
+  (let ([cell (hashtable-cell (source-map-prim->node sm) name #f)])
+    (or (cdr cell)
+        (let ([pi (make-prim-info name)])
+          (set-cdr! cell pi)
+          pi))))
 
 ;; TODO rename / abstract since this currently talks about identifier-info ???
 (define (get-or-add-node-by-source! sm kind key name def-src)
@@ -274,15 +288,15 @@
       ls
       (cons x ls)))
 
+(define (add-node-use! sm info src get-fld set-fld!)
+  (let ([src (get-common-src sm src)])
+    (set-fld! info (cons-uniq src (get-fld info)))))
+
 (define (add-identifier-ref! sm si id)
-  (let ([src (get-common-src sm id)])
-    (identifier-info-ref*-set! si
-      (cons-uniq src (identifier-info-ref* si)))))
+  (add-node-use! sm si id identifier-info-ref* identifier-info-ref*-set!))
 
 (define (add-identifier-set! sm si id)
-  (let ([src (get-common-src sm id)])
-    (identifier-info-set*-set! si
-      (cons-uniq src (identifier-info-set* si)))))
+  (add-node-use! sm si id identifier-info-set* identifier-info-set*-set!))
 
 (define (get-lexical-id-info! sm prelex)
   (get-or-add-identifier-info! sm 'lexical prelex (prelex-name prelex)
