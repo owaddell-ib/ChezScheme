@@ -372,8 +372,7 @@
   ;;        input/output of cp0
   ;;      - hmm, how will we get info about library forms; may have to dig into recompile info?
   (set-who! $extract-source
-    (lambda (x)
-      (define sm (make-source-map))  ;; TODO we'd probably pass this in
+    (lambda (x sm)
       ;; NB: the output should be *, but nanopass won't autogenerate the pass
       (define-pass record-source! : Lsrc (ir) -> Lsrc ()
         (Expr : Expr (ir) -> Expr ()
