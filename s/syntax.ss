@@ -1940,6 +1940,7 @@
       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;;;  CAREFUL with this notion: syntax-type may be called multiple times on same input
       ;;;  e.g., at boundary between definitions and expressions
+      ;;;  OTOH, we already had this issue for macros
       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         
       (define HACK-types-table                   
@@ -1955,9 +1956,12 @@
         
       ;; TODO decide where and how to actually smash things
       (printf "resolve-id ~@[~s ~]~s type=~s label=~s\n" (and (symbol? id) id) (TODO-FIXME src) type label)  
+      (when (memq type '(macro macro!))
+        (add-syntax-ref! sm id label))
       ;; TODO things to skip here:
       ;;      - type == primitive  ;; let existing calls to add-prim-ref! determine safe/unsafe
       )
+
     (values label b type)))
 
 (define syntax-type
