@@ -314,7 +314,7 @@
   (let ([si (get-lexical-id-info! sm prelex)])
     (add-identifier-info-def! sm si src)))
 
-;; TODO temporary thing for debugging
+;; TODO ? temporary thing for debugging
 (define (add-identifier-info-def! sm si src)
   (let ([src (get-common-src sm src)])
     (cond
@@ -327,9 +327,16 @@
           prev src))])
     (identifier-info-def-set! si src)))
 
-(define (add-global-set! sm src name)
-  (printf "punting on global set! ~s\n" name))
+(define (get-global-id-info! sm name)
+  ;; TODO ? mutate identifier-info-kind when we find 'global is 'library-global ?
+  ;; TODO ? rewire set* as def source when we find the sole set! for library global
+  (get-or-add-identifier-info! sm 'global name name #f))
 
-;; TODO also do a global-def when we process library guts
+(define (add-global-set! sm src name)
+  (let ([si (get-global-id-info! sm name)])
+    (add-identifier-set! sm si src)))
+
+;; TODO ? also do a global-def when we process library guts; may be down to an "info-linking" phase
 (define (add-global-ref! sm src name)
-  (printf "punting on global ref! ~s\n" name))
+  (let ([si (get-global-id-info! sm name)])
+    (add-identifier-ref! sm si src)))
