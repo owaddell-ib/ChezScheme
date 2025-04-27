@@ -424,8 +424,10 @@
   (printf "punting on alias of ~s\n" old-id)
   (void))
 
-(define (add-realm! . ignore)
+(define (add-realm! sm src uid path version ifacev impreq* def-src*)
   (printf "punting on add-realm\n")
+  (for-each (lambda (name.def-src) (add-global-def! sm (cdr name.def-src) (car name.def-src)))
+    def-src*)
   (void))
 
 (define (add-contour! . ignore)
@@ -696,7 +698,8 @@
   (define build-global-assignment
     (lambda (ae id-src name val)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "assignment to" name))
-      (when-source-map sm => (add-global-set! sm (TODO-FIXME id-src) name))
+      ;; build-library-body passes in #f so we don't record the no-source assignment to install library global
+      (when id-src (when-source-map sm => (add-global-set! sm (TODO-FIXME id-src) name)))
       (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val))))
 
 (define build-cte-install
@@ -959,7 +962,7 @@
             (lambda (label box var body)
               (if label
                   `(seq
-                     ,(build-global-assignment no-source no-source label
+                     ,(build-global-assignment no-source #f label
                         (build-cte-optimization-loc box
                           (build-lexical-reference no-source var)
                           exts))
@@ -2863,7 +2866,7 @@
                                   (build-library-body ae dl* db* dv* de*
                                     (build-sequence no-source `(,@inits ,(build-void)))))))))
                         (when-source-map sm =>
-                          (add-realm! (TODO-FIXME ae) sm library-uid library-path library-version
+                          (add-realm! sm (TODO-FIXME ae) library-uid library-path library-version
                             iface-vector (map libreq-uid import-req*)
                             (fold-left
                              (lambda (exp-id* label var)
@@ -3083,7 +3086,7 @@
                 (chexports)
 
                 (when-source-map sm =>
-                  (add-realm! (TODO-FIXME ae) sm (parse-module-name orig) '() '() iface-vector '()
+                  (add-realm! sm (TODO-FIXME ae) (parse-module-name orig) '() '() iface-vector '()
                     ;; TODO this might be wrong; can't remember how it works, maybe we set-top-level-value! here also?
                     '()))
 
@@ -3488,7 +3491,7 @@
                            (syntax-error orig "definition not permitted"))
                          (record-id! defn-table id label)
                          (when-source-map sm =>
-                           (add-realm! (TODO-FIXME ae) sm (parse-module-name e) '() '() *iface-vector '()
+                           (add-realm! sm (TODO-FIXME ae) (parse-module-name e) '() '() *iface-vector '()
                              ;; TODO maybe wrong, can't remember how it works
                              '()))
                          (let ([b (make-binding '$module iface)])
@@ -4095,7 +4098,7 @@
                                      r #t label*)]
                                  [(exports exports-to-check iface-vector) (determine-exports 'module orig *expspec** r)])
                      (when-source-map sm =>
-                       (add-realm! (TODO-FIXME ae) sm (parse-module-name e) '() '() iface-vector '() '()))
+                       (add-realm! sm (TODO-FIXME ae) (parse-module-name e) '() '() iface-vector '() '()))
                     ; valid bound ids checked already by chi-internal
                      (let ([iface (make-interface (wrap-marks (syntax-object-wrap id)) iface-vector)]
                            [vars (append *vars vars)]

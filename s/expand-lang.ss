@@ -314,6 +314,10 @@
   (let ([si (get-lexical-id-info! sm prelex)])
     (add-identifier-info-def! sm si src)))
 
+(define (add-global-def! sm src name)
+  (let ([si (get-global-id-info! sm name)])
+    (add-identifier-info-def! sm si src)))
+
 ;; TODO ? temporary thing for debugging
 (define (add-identifier-info-def! sm si src)
   (let ([src (get-common-src sm src)])
