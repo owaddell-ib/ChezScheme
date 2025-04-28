@@ -8355,9 +8355,18 @@
   (syntax-rules (set!)
     [(_ e)
      (lambda (x)
+       (define (no-replace-source src x) x)
+       ;; TODO figure out the right way to bootstrap use of $replace-source et al
+       (define replace-source
+         (if (#%$top-level-bound? '$replace-source)
+             (#%$top-level-value '$replace-source)
+             no-replace-source))
        (syntax-case x ()
-         [id (identifier? (syntax id)) (syntax e)]
-         [(_ x (... ...)) (syntax (e x (... ...)))]))]
+         [id (identifier? (syntax id)) (replace-source x  (syntax e))]
+         [(id x (... ...))
+          ;; TODO see if we can use #` and let or with-syntax?
+          (cons (replace-source #'id #'e)
+            (syntax (x (... ...))))]))]
     [(_ (id exp1) ((set! var val) exp2))
      (and (identifier? (syntax id)) (identifier? (syntax var)))
      (make-variable-transformer
