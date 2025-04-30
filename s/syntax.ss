@@ -7851,11 +7851,10 @@
     (define (rebuild ae)
       (cond
        [(syntax-object? x)
-        (source-wrap (syntax-object-expression x) (syntax-object-wrap x) ae)]
+        (source-wrap (unannotate (syntax-object-expression x)) (syntax-object-wrap x) ae)]
        [else
         ;; TODO this is wrong, perhaps due to empty-wrap, so try just an annotation:    
         ;;     (source-wrap x empty-wrap ae)
-        ;;     
         (let ([raw-x (unannotate x)])
           ;; TODO copied guts of source-wrap:
           (if (annotation? ae)
@@ -8368,14 +8367,16 @@
        (define (no-replace-source src x) x)
        ;; TODO figure out the right way to bootstrap use of $replace-source et al
        (define replace-source
+         ;; TODO huh? do we have to use syntax, quasisyntax, instead of corresponding reader syntax for sake of bootstrapping????
+         ;; TODO bootstraps fine with no-replace-source in places of the if
          (if (#%$top-level-bound? '$replace-source)
              (#%$top-level-value '$replace-source)
              no-replace-source))
        (syntax-case x ()
          [id (identifier? (syntax id)) (replace-source x (syntax e))]
          [(id x (... ...))
-          (let ([rator (replace-source #'id #'e)])
-            #`(#,rator x (... ...)))]))]
+          (let ([rator (replace-source (syntax id) (syntax e))])
+            (quasisyntax ((unsyntax rator) x (... ...))))]))]
     [(_ (id exp1) ((set! var val) exp2))
      (and (identifier? (syntax id)) (identifier? (syntax var)))
      (make-variable-transformer
