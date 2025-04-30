@@ -396,7 +396,6 @@
 
 (define (add-syntax-def! sm id label)
   (let ([si (get-syntax-id-info! sm label id)])
-    (printf "add-syntax-def! label=~s id=~s\n" label id)         
     (add-identifier-info-def! sm si id)))
 
 ;; expander boils away primref source, so track it here, not in later pass
@@ -419,22 +418,30 @@
         no-source])
       no-source))
 
+(define (get-or-add-contour! sm key kind name src)
+  (get-or-add-node! sm source-map-key->node kind key
+    ;; TODO should we pass something in for "def-src" here???
+    #f #f
+    (lambda (sm kind key name src) ;; a la get-or-add-node-by-source!   
+      (make-contour-info name kind src '() '() '()))))
+
 (define (add-import! sm mid impspec)
-  (printf "punting on import of ~s\n" mid)
+  ;; TODO is 'library correct here or can module also hit this?
+  (let ([ci (get-or-add-contour! sm mid 'library #f #f)])
+    (add-info! ci (get-ae impspec) contour-info-ref* contour-info-ref*-set!)))
+
+(define (add-realm! sm src uid name/path version ifacev impreq* def-src*)
+  (let ([ci (get-or-add-contour! sm uid (if (null? version) 'module 'library) name/path src)])
+    (for-each (lambda (name.def-src) (add-global-def! sm (cdr name.def-src) (car name.def-src)))
+      def-src*)
+    ))
+
+(define (add-contour! . ignore)
+  (printf "punting on add-contour\n")
   (void))
 
 (define (add-alias! sm new-id old-id)
   (printf "punting on alias of ~s\n" old-id)
-  (void))
-
-(define (add-realm! sm src uid path version ifacev impreq* def-src*)
-  (printf "punting on add-realm\n")
-  (for-each (lambda (name.def-src) (add-global-def! sm (cdr name.def-src) (car name.def-src)))
-    def-src*)
-  (void))
-
-(define (add-contour! . ignore)
-  (printf "punting on add-contour\n")
   (void))
 
 (begin
@@ -3088,8 +3095,10 @@
                ; other errors that might explain why exports are actually missing
                 (chexports)
 
+                ;; TODO ? move this back to the call site for chi-top-module so we don't need
+                ;;      a silly comment telling us that we've already done this
                 (when-source-map sm =>
-                  (add-realm! sm (TODO-FIXME ae) (parse-module-name orig) '() '() iface-vector '()
+                  (add-realm! sm (TODO-FIXME ae) id (parse-module-name orig) '() iface-vector '()
                     ;; TODO this might be wrong; can't remember how it works, maybe we set-top-level-value! here also?
                     '()))
 
@@ -3494,7 +3503,8 @@
                            (syntax-error orig "definition not permitted"))
                          (record-id! defn-table id label)
                          (when-source-map sm =>
-                           (add-realm! sm (TODO-FIXME ae) (parse-module-name e) '() '() *iface-vector '()
+                           ;; TODO this is in chi-external
+                           (add-realm! sm (TODO-FIXME ae) id (parse-module-name e) '() *iface-vector '()
                              ;; TODO maybe wrong, can't remember how it works
                              '()))
                          (let ([b (make-binding '$module iface)])
@@ -4101,7 +4111,8 @@
                                      r #t label*)]
                                  [(exports exports-to-check iface-vector) (determine-exports 'module orig *expspec** r)])
                      (when-source-map sm =>
-                       (add-realm! sm (TODO-FIXME ae) (parse-module-name e) '() '() iface-vector '() '()))
+                       ;; TODO we're in chi-internal
+                       (add-realm! sm (TODO-FIXME ae) id (parse-module-name e) '() iface-vector '() '()))
                     ; valid bound ids checked already by chi-internal
                      (let ([iface (make-interface (wrap-marks (syntax-object-wrap id)) iface-vector)]
                            [vars (append *vars vars)]
