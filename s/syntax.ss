@@ -4045,9 +4045,9 @@
                                   (defer-or-eval-transformer 'define-syntax local-eval-hook
                                     (meta-chi rhs r w))
                                   (fxlognot (meta-level)))])
-                     (when-source-map sm => (add-syntax-def! sm id label))
                      (record-id! defn-table id label)
                      (extend-ribcage! ribcage id label)
+                     (when-source-map sm => (add-syntax-def! sm id label))
                      (unless (eq? (id->label id empty-wrap) label)
                       ; must be an enclosing local-syntax binding for id
                        (syntax-error (source-wrap e w ae)
