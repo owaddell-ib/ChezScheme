@@ -380,7 +380,10 @@
 (include "expand-lang.ss")
 
 (define (get-syntax-id-info! sm label id)
-  (get-or-add-identifier-info! sm 'syntax label (syntax->datum id) #f))
+  ;; TODO trying to use get-or-add-identifier-info! was rubbish: we didn't have a def-src to fall back on
+  (get-or-add-node! sm source-map-key->node 'syntax label #f #f
+    (lambda (sm kind key _name _def-src) ;; a la get-or-add-node-by-source!   
+      (make-identifier-info (syntax->datum id) kind #f))))
 
 ;; TODO reorder the arguments so sm comes first for all of these?
 (define (add-syntax-ref! sm id label)
