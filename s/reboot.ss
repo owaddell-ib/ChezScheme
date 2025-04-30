@@ -552,6 +552,8 @@
 (define-primitive ($source-file-descriptor fn p)
   fn)
 
+(define-primitive ($replace-source src x) x)
+
 (define-primitive ($make-read p . more)
   (let ([l (filtered-file->exps p)])
     (lambda ()
