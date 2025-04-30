@@ -418,23 +418,38 @@
         no-source])
       no-source))
 
-(define (get-or-add-contour! sm key kind name src)
-  (get-or-add-node! sm source-map-key->node kind key
+(define (get-or-add-interface! sm key kind name src)
+  (printf "--> get-or-add-interface! kind=~s key=~s name=~s src=~s\n" kind key name src)     
+  (get-or-add-node! sm source-map-key->node kind
+    ;; TODO is there something else that does this already
+    (if (syntax-object? key) (id->label (syntax-object-expression key) (syntax-object-wrap key)) key)
     ;; TODO should we pass something in for "def-src" here???
-    #f #f
+    name #f
     (lambda (sm kind key name src) ;; a la get-or-add-node-by-source!   
-      (make-contour-info name kind src '() '() '()))))
+      (make-interface-info name kind src '() '() '()))))
 
-(define (add-import! sm mid impspec)
+(define (add-import! sm uid impspec)
+  (printf "add-import! uid=~s impspec=~s\n" uid impspec)   
   ;; TODO is 'library correct here or can module also hit this?
-  (let ([ci (get-or-add-contour! sm mid 'library #f #f)])
-    (add-info! ci (get-ae impspec) contour-info-ref* contour-info-ref*-set!)))
+  (let ([ci (get-or-add-interface! sm uid 'library #f #f)])
+    (add-node-use! sm ci (get-ae impspec) interface-info-ref* interface-info-ref*-set!)))
 
 (define (add-realm! sm src uid name/path version ifacev impreq* def-src*)
-  (let ([ci (get-or-add-contour! sm uid (if (null? version) 'module 'library) name/path src)])
+  (printf "add-realm! uid=~s name/path=~s\n" uid name/path)   
+  (let ([ci (get-or-add-interface! sm uid (if (pair? name/path) 'library 'module) name/path src)])
     (for-each (lambda (name.def-src) (add-global-def! sm (cdr name.def-src) (car name.def-src)))
       def-src*)
-    ))
+    (interface-info-impreq*-set! ci impreq*)
+    ;; TODO should we do anything for define-property? (see label/pl in secton about compile-time environment)
+    (let ([labelv (vector-map resolved-id->label ifacev)])
+      (interface-info-export*-set! ci labelv)
+      (vector-for-each
+       (lambda (resolved label)
+         (cond
+          [(syntax->annotation resolved) =>
+           (lambda (ae)
+             (add-global-ref! sm ae label))]))
+       ifacev labelv))))
 
 (define (add-contour! . ignore)
   (printf "punting on add-contour\n")
@@ -1945,6 +1960,7 @@
 ;;; syntax-type expands macros and unwraps as necessary to get to
 ;;; one of the forms above.
 
+;; TODO rename this if we keep it; want to avoid confusion with resolved-id->label and friends
 (define (resolve-id id r w src)
   (let* ([label (id->label id w)]
          [b (lookup label r)]

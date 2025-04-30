@@ -118,6 +118,8 @@
 ;;      - merge them
 ;;      - dump contents
 
+;; TODO clean up all of these comments
+
 (define-record-type source-map
   (nongenerative #{source-map 2lv8mlz2kzyg0qqg338ia10pk-0})
   (fields
@@ -186,22 +188,28 @@
 ;; TODO instead of making the fields mutable, should we have an intermediate record type for cases like
 ;;      add-import! that have only partial information and then merge that info when we get it?
 (define-record-type contour-info
-  (nongenerative #{contour-info nfne4i66hgd1aupfouk6yvuxc-2})
+  (nongenerative #{contour-info j1qn4yon710auwsxmmkymfryk-0})
   (fields
    ;; TODO are name / kind going to be common fields of a parent source-info record type?
-   (mutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
+   ;;      - not sure this has a name
    (mutable kind)     ;; lambda | letrec | letrec* | module | library
    (mutable src)      ;; bfp/efp for region: e.g., individual case-lambda clause
    ;; TODO should we move the parameterize inside the build-letrec* in build-library-body so it can record contour for us?
    ;;      i.e., maybe contour should be just src and bound* and src so we avoid the mess of name, export*, and ref*
    (mutable bound*)   ;; (identifier-info ...)
-   ;; TODO will clients be confused by '() for ref* for a 'lambda contour, e.g.?
-   (mutable ref*)     ;; edges showing where we were imported (src ...)  ;; TODO more generally: (node ...) ??
-   (mutable export*)  ;; (identifier-info ...)
    ))
 
-(define (add-info! node val get-field set-field)
-  (set-field node (cons val (get-field node))))
+(define-record-type interface-info
+  (nongenerative #{interface-info j1qn4yon710auwsxmmkymfryk-1})
+  (fields
+   ;; TODO are name / kind going to be common fields of a parent source-info record type?
+   (mutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
+   (mutable kind)     ;; lambda | letrec | letrec* | module | library
+   (mutable src)      ;; bfp/efp for region: e.g., individual case-lambda clause
+   (mutable ref*)     ;; edges showing where we were imported (src ...)  ;; TODO more generally: (node ...) ??
+   (mutable impreq*)  ;; (uid ...)
+   (mutable export*)  ;; #(label ...)
+   ))
 
 (module (ae->src TODO-FIXME)
   (include "types.ss")  ;; TODO BARF figure out how we really share code
