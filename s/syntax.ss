@@ -965,7 +965,7 @@
     ;; constructed here since:
     ;;  1. These forms are not explicit in the source code, and
     ;;  2. We already record the connection in chi-top-library.
-    (parameterize ([$source-map #f])
+    (parameterize ([$source-map #f]) ;; TODO this won't do anything if we collect global info via $extract-source instead of build-global-*
       (let ([exts (build-library-exts labels vars)])
         (build-letrec* ae vars val-exps
           (fold-right
