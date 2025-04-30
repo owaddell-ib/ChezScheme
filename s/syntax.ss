@@ -7839,25 +7839,35 @@
 (set! $build-library-exts build-library-exts)
 
 (set! $replace-source
-  ;; TODO this seems better, but still needs lots of testing
+  ;; TODO this still needs lots of testing
   (lambda (src x)
-    ;; Don't require x to be a syntax object, since we might be
-    ;; applying source information to something constructed from
+    ;; Don't require x to be a syntax object, since we might
+    ;; apply source information to something constructed from
     ;; pieces of the input that have already been unwrapped.
     ;;  (syntax-case syn ()
     ;;    [(_ a b)
     ;;     (with-syntax ([c (replace-source syn #'(b a))])
     ;;       ...)])
-    (let-values ([(e w)
-                  (if (syntax-object? x)
-                      (values
-                       (syntax-object-expression x)
-                       (syntax-object-wrap x))
-                      (values x empty-wrap))])
-      (let ([e (if (annotation? e) (annotation-expression e) e)])
-        (cond
-         [(syntax->annotation src) => (lambda (ae) (source-wrap e w ae))]
-         [else (wrap e w)])))))
+    (define (rebuild ae)
+      (cond
+       [(syntax-object? x)
+        (source-wrap (syntax-object-expression x) (syntax-object-wrap x) ae)]
+       [else
+        ;; TODO this is wrong, perhaps due to empty-wrap, so try just an annotation:    
+        ;;     (source-wrap x empty-wrap ae)
+        ;;     
+        (let ([raw-x (unannotate x)])
+          ;; TODO copied guts of source-wrap:
+          (if (annotation? ae)
+              (if (eq? (annotation-expression ae) raw-x)
+                  ae
+                  (make-annotation x (annotation-source ae) raw-x (annotation-flags ae)))
+              raw-x))]))
+    (cond
+     [(syntax->annotation src) => rebuild]
+     ;; no source from src, so remove source from x:
+     [(syntax->annotation x) (rebuild #f)]
+     [else x])))
 
 ;; TODO should bake in some $replace-source sauce as well
 (set! $construct-name ;; TODO should we lift this out at some point? (see the one in swish)
