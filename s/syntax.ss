@@ -956,8 +956,8 @@
   (lambda (ae labels boxes vars val-exps body-exp)
     ;; We don't report source for the global assignments and lexical references
     ;; constructed here since:
-    ;;  1. We already record the connection in chi-top-library, and
-    ;;  2. These forms are not explicit in the source code.
+    ;;  1. These forms are not explicit in the source code, and
+    ;;  2. We already record the connection in chi-top-library.
     (parameterize ([$source-map #f])
       (let ([exts (build-library-exts labels vars)])
         (build-letrec* ae vars val-exps
