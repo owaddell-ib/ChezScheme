@@ -418,11 +418,22 @@
         no-source])
       no-source))
 
+;; TODO is there something else that does something like this already
+;; TODO maybe I just want something like (id->label id empty-wrap)
+(define (HACK-id->key id)
+  (cond
+   [(symbol? id) id]
+   [(syntax-object? id)
+    (id->label (syntax-object-expression id) (syntax-object-wrap id))]
+   [else  
+    (printf "HACK-id->key got ~s\n" id)   
+    id
+    ]))
+
 (define (get-or-add-interface! sm key kind name src)
   (printf "--> get-or-add-interface! kind=~s key=~s name=~s src=~s\n" kind key name src)     
   (get-or-add-node! sm source-map-key->node kind
-    ;; TODO is there something else that does this already
-    (if (syntax-object? key) (id->label (syntax-object-expression key) (syntax-object-wrap key)) key)
+    (HACK-id->key key)
     ;; TODO should we pass something in for "def-src" here???
     name #f
     (lambda (sm kind key name src) ;; a la get-or-add-node-by-source!   
@@ -434,7 +445,7 @@
   (let ([ci (get-or-add-interface! sm uid 'library #f #f)])
     (add-node-use! sm ci (get-ae impspec) interface-info-ref* interface-info-ref*-set!)))
 
-(define (add-realm! sm src uid name/path version ifacev impreq* def-src*)
+(define (add-realm! sm src uid name/path version export* impreq* def-src*)
   (printf "add-realm! uid=~s name/path=~s\n" uid name/path)   
   (let ([node (get-or-add-interface! sm uid (if (pair? name/path) 'library 'module) name/path src)])
     ;; TODO this is some linking here
@@ -447,18 +458,19 @@
     ;; TODO do we actually have a use for this? (if not, nuke linkage as well)
     (interface-info-impreq*-set! node impreq*)
     ;; TODO should we do anything for define-property? (see label/pl in secton about compile-time environment)
-    (let ([labelv (vector-map resolved-id->label ifacev)])
-      (interface-info-export*-set! node labelv)
-      (vector-for-each
-       (lambda (resolved label)
+    (let ([labels (map HACK-id->key export*)]) ;; TODO reconcile label vs. key
+      (interface-info-export*-set! node labels)
+      (for-each
+       (lambda (id label)
          (cond
-          [(syntax->annotation resolved) =>
+          [(syntax->annotation id) =>
            (lambda (ae)
              (add-global-ref! sm ae label))]
           [else
-           (printf "sorry, no annotation for export id ~s\n" resolved)
+           ;; TODO oops, ifacev resolved ids have no source
+           (printf "sorry, no annotation for export id ~s\n" id)
            ]))
-       ifacev labelv))))
+       export* labels))))
 
 (define (add-contour! . ignore)
   (printf "punting on add-contour\n")
@@ -2902,7 +2914,7 @@
                                     (build-sequence no-source `(,@inits ,(build-void)))))))))
                         (when-source-map sm =>
                           (add-realm! sm (TODO-FIXME ae) library-uid library-path library-version
-                            iface-vector (map libreq-uid import-req*)
+                            exports (map libreq-uid import-req*)
                             (fold-left
                              (lambda (exp-id* label var)
                                (if label (cons (cons label (prelex-source var)) exp-id*) exp-id*))
@@ -3123,7 +3135,7 @@
                 ;; TODO ? move this back to the call site for chi-top-module so we don't need
                 ;;      a silly comment telling us that we've already done this
                 (when-source-map sm =>
-                  (add-realm! sm (TODO-FIXME ae) id (parse-module-name orig) '() iface-vector '()
+                  (add-realm! sm (TODO-FIXME ae) id (parse-module-name orig) '() exports '()
                     ;; TODO this might be wrong; can't remember how it works, maybe we set-top-level-value! here also?
                     '()))
 
@@ -3529,7 +3541,7 @@
                          (record-id! defn-table id label)
                          (when-source-map sm =>
                            ;; TODO this is in chi-external
-                           (add-realm! sm (TODO-FIXME ae) id (parse-module-name e) '() *iface-vector '()
+                           (add-realm! sm (TODO-FIXME ae) id (parse-module-name e) '() *exports '()
                              ;; TODO maybe wrong, can't remember how it works
                              '()))
                          (let ([b (make-binding '$module iface)])
@@ -4137,7 +4149,7 @@
                                  [(exports exports-to-check iface-vector) (determine-exports 'module orig *expspec** r)])
                      (when-source-map sm =>
                        ;; TODO we're in chi-internal
-                       (add-realm! sm (TODO-FIXME ae) id (parse-module-name e) '() iface-vector '() '()))
+                       (add-realm! sm (TODO-FIXME ae) id (parse-module-name e) '() exports '() '()))
                     ; valid bound ids checked already by chi-internal
                      (let ([iface (make-interface (wrap-marks (syntax-object-wrap id)) iface-vector)]
                            [vars (append *vars vars)]
