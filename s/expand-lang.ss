@@ -207,6 +207,8 @@
    (mutable kind)     ;; lambda | letrec | letrec* | module | library
    (mutable src)      ;; bfp/efp for region: e.g., individual case-lambda clause
    (mutable ref*)     ;; edges showing where we were imported (src ...)  ;; TODO more generally: (node ...) ??
+   ;; TODO map these to (interface-info ...) in the output while we still have uid -> interface-info mapping
+   ;;      --> maybe we want these in a separate bin to make it faster to locate them
    (mutable impreq*)  ;; (uid ...)
    (mutable export*)  ;; #(label ...)
    ))

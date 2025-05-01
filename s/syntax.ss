@@ -436,19 +436,28 @@
 
 (define (add-realm! sm src uid name/path version ifacev impreq* def-src*)
   (printf "add-realm! uid=~s name/path=~s\n" uid name/path)   
-  (let ([ci (get-or-add-interface! sm uid (if (pair? name/path) 'library 'module) name/path src)])
+  (let ([node (get-or-add-interface! sm uid (if (pair? name/path) 'library 'module) name/path src)])
+    ;; TODO this is some linking here
+    (unless (interface-info-src node)
+      (interface-info-src-set! node src))
+    (unless (interface-info-name node)
+      (interface-info-name-set! node name/path))
     (for-each (lambda (name.def-src) (add-global-def! sm (cdr name.def-src) (car name.def-src)))
       def-src*)
-    (interface-info-impreq*-set! ci impreq*)
+    ;; TODO do we actually have a use for this? (if not, nuke linkage as well)
+    (interface-info-impreq*-set! node impreq*)
     ;; TODO should we do anything for define-property? (see label/pl in secton about compile-time environment)
     (let ([labelv (vector-map resolved-id->label ifacev)])
-      (interface-info-export*-set! ci labelv)
+      (interface-info-export*-set! node labelv)
       (vector-for-each
        (lambda (resolved label)
          (cond
           [(syntax->annotation resolved) =>
            (lambda (ae)
-             (add-global-ref! sm ae label))]))
+             (add-global-ref! sm ae label))]
+          [else
+           (printf "sorry, no annotation for export id ~s\n" resolved)
+           ]))
        ifacev labelv))))
 
 (define (add-contour! . ignore)
@@ -7095,6 +7104,25 @@
                 [($report-source-info) =>
                  (lambda (report)
                    (when sm
+
+                     ;; TODO some sort of link phase; likely on-demand, when we merge source-maps, etc.
+                     (let ([key->node (source-map-key->node sm)])
+                       (vector-for-each
+                        (lambda (cell)
+                          (let ([key (car cell)] [node (cdr cell)])
+                            (cond
+                             [(interface-info? node)
+                              (interface-info-impreq*-set! node
+                                (map
+                                 (lambda (x)
+                                   (if (interface-info? x)
+                                       x ;; resolved on hypothetical earlier resolution of source-map
+                                       (hashtable-ref key->node x x)))
+                                 ;; TODO may want to put interfaces (and other stuff that needs linking) into a separate key->node map
+                                 ;;      so we can find it faster
+                                 (interface-info-impreq* node)))])))
+                        (hashtable-cells key->node)))
+
                      (report sm)    
                      #; 
                      (report outfn
