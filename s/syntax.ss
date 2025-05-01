@@ -450,6 +450,7 @@
   (let ([node (get-or-add-interface! sm uid (if (pair? name/path) 'library 'module) name/path src)])
     ;; TODO this is some linking here
     (unless (interface-info-src node)
+      ;; TODO consider using source for the name/path here instead of the ae for entire library ---> let that fall to contour instead
       (interface-info-src-set! node src))
     (unless (interface-info-name node)
       (interface-info-name-set! node name/path))
