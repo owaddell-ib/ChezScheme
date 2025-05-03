@@ -553,6 +553,8 @@
   fn)
 
 (define-primitive ($replace-source src x) x)
+(define-primitive $current-source-map (make-parameter #f))
+(define-primitive $report-source-info (make-parameter #f)) ;; TODO remove this
 
 (define-primitive ($make-read p . more)
   (let ([l (filtered-file->exps p)])

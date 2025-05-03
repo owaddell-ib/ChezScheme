@@ -364,14 +364,6 @@
 (let ()
 (define noexpand "noexpand")
 
-(define $source-map ($make-thread-parameter #f))
-
-(define-syntax when-source-map
-  (syntax-rules (=>)
-    [(_ sm => e0 e1 ...)
-     (identifier? #'sm)
-     (cond [($source-map) => (lambda (sm) e0 e1 ...)])]))
-
 ;;; hooks to nonportable run-time helpers
 
 (include "types.ss")
@@ -489,7 +481,7 @@
   ; for top-level macro transformers and eval-when, use default
   ; system evaluator
   (lambda (x)
-    ;; TODO should we parameterize $source-map here, in local-eval-hook, and around calls to eval in defer-or-eval-transformer ?
+    ;; TODO should we parameterize $current-source-map here, in local-eval-hook, and around calls to eval in defer-or-eval-transformer ?
     (eval `(,noexpand ,x))))
 
 (define local-eval-hook
@@ -1005,7 +997,7 @@
     ;; constructed here since:
     ;;  1. These forms are not explicit in the source code, and
     ;;  2. We already record the connection in chi-top-library.
-    (parameterize ([$source-map #f]) ;; TODO this won't do anything if we collect global info via $extract-source instead of build-global-*
+    (parameterize ([$current-source-map #f]) ;; TODO this won't do anything if we collect global info via $extract-source instead of build-global-*
       (let ([exts (build-library-exts labels vars)])
         (build-letrec* ae vars val-exps
           (fold-right
@@ -5630,6 +5622,13 @@
     (lambda ()
       (make-source-map)))
 
+  (set! $current-source-map
+    ($make-thread-parameter #f
+      (lambda (x)
+        (unless (or (not x) (source-map? x))
+          ($oops '$current-source-map "~s is not a source map or #f" x))
+        x)))
+
   (set-who! $report-source-info
     ($make-thread-parameter #f
       (lambda (x)
@@ -7101,17 +7100,9 @@
        (if (and (pair? x) (equal? (car x) noexpand))
            (cadr x)
            (let ((ctem (initial-mode-set (eval-syntax-expanders-when) compiling-a-file))
-                 (rtem (initial-mode-set '(load eval) compiling-a-file))
-                 ;; TODO plumbing for passing in (or parameterize) the source-map to extend
-                 ;;      - current hack is that we'll return one when we call $report-source-info
-                 ;;        with zero args and we'll try to construct one at the right time
-                 ;;      - basically didn't want to plumb sm through compile.ss calls into expand; have to remember to update expand variant(s?) that are not sc-expand
-                 (sm (cond
-                      [($report-source-info) => (lambda (rsi) (rsi))]
-                      [else #f])))
-             (assert (or (not sm) (source-map? sm)))   
+                 (rtem (initial-mode-set '(load eval) compiling-a-file)))
              (let ([x (at-top
-                        (parameterize ([meta-level 0] [$source-map sm])
+                        (parameterize ([meta-level 0])
                           (chi-top* x
                             (env-wrap env)
                             ctem rtem
@@ -7121,9 +7112,11 @@
                (cond
                 [($report-source-info) =>
                  (lambda (report)
-                   (when sm
+                   (when-source-map sm =>
 
                      ;; TODO some sort of link phase; likely on-demand, when we merge source-maps, etc.
+                     ;;    - wire interface-info-impreq* to the corresponding interface-info node
+                     ;;    - wire interface-info-export* to the corresponding identifier-info
                      (let ([key->node (source-map-key->node sm)])
                        (vector-for-each
                         (lambda (cell)

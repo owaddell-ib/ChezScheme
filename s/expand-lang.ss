@@ -120,6 +120,12 @@
 
 ;; TODO clean up all of these comments
 
+(define-syntax when-source-map
+  (syntax-rules (=>)
+    [(_ sm => e0 e1 ...)
+     (identifier? #'sm)
+     (cond [(#%$current-source-map) => (lambda (sm) e0 e1 ...)])]))
+
 (define-record-type source-map
   (nongenerative #{source-map 2lv8mlz2kzyg0qqg338ia10pk-0})
   (fields

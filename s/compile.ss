@@ -720,6 +720,7 @@
                   ($uncprep x1 #t) ; populate preinfo sexpr fields
                   (check-prelex-flags x1 'uncprep)
                   (when source-table ($insert-profile-src! source-table x1))
+                  (when-source-map sm => ($extract-source x1 sm))
                   (when wpoop
                     ; cross-library optimization locs might be set by cp0 during the expander's compile-time
                     ; evaluation of library forms.  since we have no need for the optimization information in

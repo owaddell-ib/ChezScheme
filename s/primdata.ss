@@ -2413,6 +2413,8 @@
   ;;  - move up near make-source-table
   ;;  - investigate how to fix -> (ptr) below to be -> (source-map) the way make-source-table declaration does
   ($make-source-map [sig [() -> (source-map)]] [flags unrestricted alloc])
+  ($current-source-map [flags single-valued])
+  ;; TODO delete this:
   ($report-source-info [sig [() -> (maybe-procedure)] [(ptr) -> (void)]] [flags])
   ($report-string [flags single-valued])
   ($require-include [flags single-valued])
