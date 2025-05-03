@@ -46,8 +46,8 @@
                     [,inner (cons (go-Inner inner) x*)]
                     [(recompile-info ,rcinfo)
 ;; TODO starting to think we might use this rcinfo as part of our surrogate source for ids that have none
-(when ($report-source-info)
-(printf "Lexpand-to-go recompile-info:\n  import-req* = ~s\n  include-req* = ~s\n" (recompile-info-import-req* rcinfo) (recompile-info-include-req* rcinfo))    
+(when-source-map sm =>
+(fprintf (console-error-port) "Lexpand-to-go recompile-info:\n  import-req* = ~s\n  include-req* = ~s\n" (recompile-info-import-req* rcinfo) (recompile-info-include-req* rcinfo))    
 )
                      (cons `(recompile-requirements ,(recompile-info-import-req* rcinfo) ,(recompile-info-include-req* rcinfo)) x*)]
                     [else (sorry! who "unexpected language form ~s" x)]))])

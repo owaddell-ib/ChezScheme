@@ -7108,48 +7108,6 @@
                             ctem rtem
                             (env-top-ribcage env)
                             outfn)))])
-               ;; TODO what if we commonize source records in the output?
-               (cond
-                [($report-source-info) =>
-                 (lambda (report)
-                   (when-source-map sm =>
-
-                     ;; TODO some sort of link phase; likely on-demand, when we merge source-maps, etc.
-                     ;;    - wire interface-info-impreq* to the corresponding interface-info node
-                     ;;    - wire interface-info-export* to the corresponding identifier-info
-                     (let ([key->node (source-map-key->node sm)])
-                       (vector-for-each
-                        (lambda (cell)
-                          (let ([key (car cell)] [node (cdr cell)])
-                            (cond
-                             [(interface-info? node)
-                              (interface-info-impreq*-set! node
-                                (map
-                                 (lambda (x)
-                                   (if (interface-info? x)
-                                       x ;; resolved on hypothetical earlier resolution of source-map
-                                       (hashtable-ref key->node x x)))
-                                 ;; TODO may want to put interfaces (and other stuff that needs linking) into a separate key->node map
-                                 ;;      so we can find it faster
-                                 (interface-info-impreq* node)))])))
-                        (hashtable-cells key->node)))
-
-                     (report sm)    
-                     #; 
-                     (report outfn
-                      (hashtable-values (source-map-lexical sm))
-                      (hashtable-values (source-map-global sm))
-                      (hashtable-values (source-map-primitive sm))
-                      (source-map-contour* sm)
-                      (source-map-realm* sm)
-                      (source-map-imports sm)
-                      (vector-map
-                       (lambda (cell)
-                         (if (local-label? (car cell))
-                             (cdr cell)
-                             cell))
-                       (hashtable-cells (source-map-syntax sm)))
-                      (source-map-alias* sm))))])
                (if records? x ($uncprep x)))))))))
 
 (set-who! $require-include
