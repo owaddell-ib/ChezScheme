@@ -211,6 +211,7 @@
    ;; TODO are name / kind going to be common fields of a parent source-info record type?
    (mutable name)     ;; #f | symbol | library path  ;; TODO what about library version ???
    (mutable kind)     ;; lambda | letrec | letrec* | module | library
+   ;; TODO hmm, this might be kind of like identifier-info-def ??
    (mutable src)      ;; bfp/efp for region: e.g., individual case-lambda clause
    (mutable ref*)     ;; edges showing where we were imported (src ...)  ;; TODO more generally: (node ...) ??
    ;; TODO map these to (interface-info ...) in the output while we still have uid -> interface-info mapping

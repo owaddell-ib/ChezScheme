@@ -454,14 +454,23 @@
     ;; TODO do we actually have a use for this? (if not, nuke linkage as well)
     (interface-info-impreq*-set! node impreq*)
     ;; TODO should we do anything for define-property? (see label/pl in secton about compile-time environment)
-    (let ([labels (map HACK-id->key export*)]) ;; TODO reconcile label vs. key
+    (let ([labels (map HACK-id->key export*)]  ;; TODO reconcile label vs. key
+          [key->node (source-map-key->node sm)])
       (interface-info-export*-set! node labels)
+      ;; reasonable to link now since we have all the information
       (for-each
        (lambda (id label)
          (cond
           [(syntax->annotation id) =>
            (lambda (ae)
-             (add-global-ref! sm ae label))]
+             (cond
+              [(hashtable-ref key->node label #f) =>
+               (lambda (node)
+                 (cond
+                  [(identifier-info? node) (add-identifier-ref! sm node ae)]
+                  [(interface-info? node) (add-node-use! sm node ae interface-info-ref* interface-info-ref*-set!)]
+                  [else (printf "FORGOT TO HANDLE node type: ~s\n" node)]))]
+              [else (printf "Huh? no node for label ~s\n" label)]))]
           [else
            ;; TODO oops, ifacev resolved ids have no source
            (printf "sorry, no annotation for export id ~s\n" id)
