@@ -470,7 +470,15 @@
                   [(identifier-info? node) (add-identifier-ref! sm node ae)]
                   [(interface-info? node) (add-node-use! sm node ae interface-info-ref* interface-info-ref*-set!)]
                   [else (printf "FORGOT TO HANDLE node type: ~s\n" node)]))]
-              [else (printf "Huh? no node for label ~s\n" label)]))]
+              [else
+               ;; TODO when compiling Swish we're hitting this case for things like:
+               ;;   - replace-source
+               ;;   - elide-whitespace
+               ;;   - get-integer-token
+               ;;   - make-natural<?
+               ;;   - token<?
+               ;;   - ALSO for log-event and endure-logger-fault?
+               (printf "Huh? no node for label ~s\n" label)]))]
           [else
            ;; TODO oops, ifacev resolved ids have no source
            (printf "sorry, no annotation for export id ~s\n" id)
