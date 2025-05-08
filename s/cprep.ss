@@ -44,12 +44,7 @@
                     [(visit-only ,inner) (cons `(eval-when (visit) ,(go-Inner inner)) x*)]
                     [(revisit-only ,inner) (cons `(eval-when (revisit) ,(go-Inner inner)) x*)]
                     [,inner (cons (go-Inner inner) x*)]
-                    [(recompile-info ,rcinfo)
-;; TODO starting to think we might use this rcinfo as part of our surrogate source for ids that have none
-(when-source-map sm =>
-(fprintf (console-error-port) "Lexpand-to-go recompile-info:\n  import-req* = ~s\n  include-req* = ~s\n" (recompile-info-import-req* rcinfo) (recompile-info-include-req* rcinfo))    
-)
-                     (cons `(recompile-requirements ,(recompile-info-import-req* rcinfo) ,(recompile-info-include-req* rcinfo)) x*)]
+                    [(recompile-info ,rcinfo) (cons `(recompile-requirements ,(recompile-info-import-req* rcinfo) ,(recompile-info-include-req* rcinfo)) x*)]
                     [else (sorry! who "unexpected language form ~s" x)]))])
         (safe-assert (not (null? x*)))
         (cond
