@@ -486,6 +486,33 @@
        export* labels))))
 
 (define (add-contour! . ignore)
+  ;; TODO consider calling add-contour! on the way in rather than while rebuilding the output
+  ;;      - maybe extend r with compile-time binding or property for an id visible only to the expander
+  ;;        where we store things like the ae for construct that introduced the contour
+  ;;        - r is already plumbed through where we might need it
+  ;;        - alternatives seem like a mess of imperative smashery
+  ;;      - might consult that binding to
+  ;;        - construct link to enclosing contour
+  ;;        - provide more precise fallback source in cases where we have no source
+  ;;          - e.g., continue to use bfp == efp but instead of bfp=0 we'd have bfp=contour.ae.bfp
+  ;;          - might let us use "def-src is contained within library's ae range" as a way for clients
+  ;;            to reconstruct some information that might be burdensome to collect explicitly, like
+  ;;            "which exports of this imported library did I actually use within some contour"
+  ;;            - hmm, does (include "foo.ss") break that unrecoverably?
+  ;;              - we could patch up include, but then user-defined include is borked
+  ;;            - or does it suggest having contour also encompass splicing constructs
+  ;;              - e.g., include-like forms often expand into (begin ...), (let-syntax (...) ...), etc.
+  ;;                - the (begin ...) case is least like a binding form
+  ;;                - typical case in macro that expands into begin is that we bind and reference
+  ;;                  introduced identifiers, so it's not really begin but the wrap/mark machinery
+  ;;                - of course an include-like form could expand into a single definition
+  ;;                - hmm. not keen on extending the wrap/mark machinery, but 3AM brain wonders
+  ;;                  if that might be a more robust notion
+  ;;      - is add-contour! the right notion?
+  ;;        - look at the original comments near the top of the file about contours
+  ;;        - what kinds of questions are these intended to address
+  ;;          - e.g., maybe we bulk up edges by recording something about the "context" in addition to the source
+  ;;            - that's likely to be something like contour
   (printf "punting on add-contour\n")
   (void))
 
