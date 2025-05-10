@@ -765,6 +765,7 @@
 
 (define build-primitive-assignment
   (lambda (ae name val)
+    ;; TODO can we let $extract-source do this now?
     (when-source-map sm => (add-global-set! sm (ae->src ae) name))
     (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val)))
 
@@ -778,12 +779,14 @@
   (define build-global-reference
     (lambda (ae name safe?)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "reference to" name))
+      ;; TODO can we let $extract-source do this now?
       (when-source-map sm => (add-global-ref! sm (ae->src ae) name))
       (build-primcall ae (if (or safe? (fx= (optimize-level) 3)) 3 2) '$top-level-value `(quote ,name))))
 
   (define build-global-assignment
     (lambda (ae id-src name val)
       (when (eq? (subset-mode) 'system) (unbound-warning (ae->src ae) "assignment to" name))
+      ;; TODO can we let $extract-source do this now?
       ;; build-library-body passes in #f so we don't record the no-source assignment to install library global
       (when id-src (when-source-map sm => (add-global-set! sm (TODO-FIXME id-src) name)))
       (build-primcall ae 3 '$set-top-level-value! `(quote ,name) val))))
