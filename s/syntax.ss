@@ -6900,6 +6900,7 @@
                       (not (ellipsis? #'pattern)))
                  (if (free-id=? #'pattern #'_)
                      (chi #'template r empty-wrap)
+                     ;; TODO HUH???? #'pattern may be bound to some #'(x y z) and we're going to use that as the name in make-prelex???
                      (let ([var (gen-var #'pattern)])
                        (let ([label (make-local-label (make-binding 'syntax `(,var . 0)) (meta-level))])
                          (let ([body (chi #'template r
