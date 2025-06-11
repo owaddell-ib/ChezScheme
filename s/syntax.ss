@@ -487,6 +487,10 @@
 
 (define (add-contour! . ignore)
   ;; TODO consider calling add-contour! on the way in rather than while rebuilding the output
+  ;;      - maybe make-binding-wrap is the thing to look for?
+  ;;      - maybe we add a source / contour record to each of the ribcage record types?
+  ;;        - maybe it's a gensym we can look up in a table of contours
+  ;;        - hmm, maybe instead of a field in the ribcage we use an eq-hashtable so we don't pay for the field in the common case?
   ;;      - maybe extend r with compile-time binding or property for an id visible only to the expander
   ;;        where we store things like the ae for construct that introduced the contour
   ;;        - r is already plumbed through where we might need it
@@ -6457,7 +6461,7 @@
                   (let ((b (find (lambda (m) (eq? outer-var (mistake-outer m))) (car maps))))
                     (if b
                         (values (mistake-inner b) maps)
-                        (let ((inner-var (gen-var 'tmp)))
+                        (let ((inner-var (gen-var 'tmp))) ;; TODO is this one among many cases where we should be using a different name for the temporary that would make more sense in something like Chris's syntax-rules example
                           (values inner-var
                                   (cons (cons (make-mistake outer-var inner-var id)
                                               (car maps))
@@ -6900,7 +6904,6 @@
                       (not (ellipsis? #'pattern)))
                  (if (free-id=? #'pattern #'_)
                      (chi #'template r empty-wrap)
-                     ;; TODO HUH???? #'pattern may be bound to some #'(x y z) and we're going to use that as the name in make-prelex???
                      (let ([var (gen-var #'pattern)])
                        (let ([label (make-local-label (make-binding 'syntax `(,var . 0)) (meta-level))])
                          (let ([body (chi #'template r
