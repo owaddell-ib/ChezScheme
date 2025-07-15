@@ -6242,6 +6242,8 @@
       (define (build-set-port-input-index! port-type e-p e-x)
         ; actually, set count to index - size, where size = last - buffer[0]
         (bind #t (e-p)
+          ;; TODO also have to deal with this guy for foreign-buffer port
+          ;;      --> or retain bytevector-data-disp in port-ibuffer-disp
           `(set! ,(%mref ,e-p ,(constant port-icount-disp))
              ,(%inline -
                ,(translate e-x
@@ -6283,6 +6285,10 @@
     (let ()
       (define (make-build-set-port-buffer! port-type ibuffer-disp icount-disp ilast-disp)
         (lambda (e-p e-b new?)
+          ;; TODO drat need some way to make set-port-input-buffer! and friends make sense for foreign buffer
+          ;;      I wonder if I should be adding foreign-bytevector or something instead
+          ;;      - in other words, this is going to break badly once I'm no longer testing with
+          ;;        foreign address of a Scheme bytevector
           (bind #t (e-p e-b)
             `(seq
                ,(if new?

@@ -3517,6 +3517,136 @@ implementation notes:
               binary-port))]))
     )
 
+  ;; open-foreign-buffer-input-port
+  (let ()
+    ;; port-info stores size of foreign buffer as fixnum; collector avoids tracing input buffer when it sees that
+    (define $foreign-buffer-input-handler
+      (make-port-handler
+        [ready?
+         (lambda (who p)
+           (assert-not-closed who p)
+           #t)]
+        [lookahead
+         (lambda (who p)
+           (assert-not-closed who p)
+           (if (port-input-empty? p)
+               (eof-object)
+               (#3%lookahead-u8 p)))]
+        [unget
+         (lambda (who p x)
+           (assert-not-closed who p)
+           (if (eof-object? x)
+               ;; We don't set port-eof b/c #!eof only comes at end anyway
+               (unless (port-input-empty? p) (unget-error who p x))
+               (let ([index (binary-port-input-index p)])
+                 (when (eq? 0 index) (unget-error who p x))
+                 (set-binary-port-input-index! p (fx1- index)))))]
+        [get
+         (lambda (who p)
+           (assert-not-closed who p)
+           (if (port-input-empty? p)
+               (eof-object)
+               (let ([index (binary-port-input-index p)])
+                 (set-binary-port-input-index! p (fx1+ index))
+                 (#3%lookahead-u8 p))))]
+        [get-some
+         (lambda (who p bv start count)
+           (assert-not-closed who p)
+           (let ([port-count (binary-port-input-count p)])
+             (if (eq? 0 port-count)
+                 (eof-object)
+                 (let ([index (binary-port-input-index p)]
+                       [count (fxmin count port-count)])
+                   ;; extract address on C side so we avoid boxing if not fixnum
+                   (#%$byte-copy-indirect! p bv (constant bytevector-data-disp) count)
+                   (set-binary-port-input-index! p (fx+ index count))
+                   count))))]
+        [clear-input
+         (lambda (who p)
+           (assert-not-closed who p))]
+        [put #f]
+        [put-some #f]
+        [flush #f]
+        [clear-output #f]
+        [close-port
+         (lambda (who p)
+           (unless (port-closed? p)
+             (mark-port-closed! p)
+             (set-binary-port-input-size! p 0)))]
+        [port-position
+         (lambda (who p)
+           (assert-not-closed who p)
+           (binary-port-input-index p))]
+        [set-port-position!
+         (lambda (who p x)
+           (assert-not-closed who p)
+           (unless (and (fixnum? x) (not ($fxu< (binary-port-input-size p) x)))
+             (if (or (and (fixnum? x) (fx>= x 0)) (and (bignum? x) (>= x 0)))
+                 (position-oops who p x "out of range")
+                 ($oops who "~s is not a valid position" x)))
+           (set-binary-port-input-index! p x))]
+        [port-length
+         (lambda (who p)
+           (assert-not-closed who p)
+           ($port-info p))]
+        [set-port-length! #f]
+        [port-nonblocking? #f]
+        [set-port-nonblocking! #f]))
+
+    (define address?
+      (lambda (x)
+        (constant-case address-bits
+          [(32) ($integer-32? x)]
+          [(64) ($integer-64? x)])))
+
+      
+    (define (REMINDERS)
+      (printf "TODO:\n")
+      (printf " - deal with things like inline handlers for\n")
+      (printf "   - binary-port-input-buffer\n")
+      (printf "   - set-binary-port-input-buffer!\n")
+      (printf "   - in theory we could add a foreign-bytevector type w/ size and address\n")
+      (printf " - clean up foreign helper\n")
+      (printf " - test the port handler cases\n")
+      (set! REMINDERS void))
+      
+
+    (define open-binary-foreign-buffer-input-port
+      (lambda (size address)
+        (define who 'open-foreign-buffer-input-port)
+        (REMINDERS)
+        (unless (and (fixnum? size) (fx>= size 0))
+          ($oops who "~s is not a valid size" size))
+        (unless (address? address)
+          ($oops who "~s is not a plausible address" address))
+        (let ([end (+ size address)])
+          (unless (address? end)
+            ($oops who "~s is not a plausible address" end))
+          (let ([p ($make-binary-input-port "foreign buffer" $foreign-buffer-input-handler #vu8() size)])
+            ($set-port-flags! p
+              (fxlogor
+               (constant port-flag-block-buffered)
+               (constant port-flag-foreign-buffer)))
+            ;; TODO hack so we don't have to modify make-build-set-port-buffer
+            (critical-section
+              (#%$object-set! 'uptr p (constant port-icount-disp) (fx- size))
+              ;; subtract off bytevector-data-disp so binary-port-input-index and set-binary-port-input-index! work as expected
+              (#%$object-set! 'uptr p (constant port-ibuffer-disp) (fx- address (constant bytevector-data-disp)))
+              (#%$object-set! 'uptr p (constant port-ilast-disp) end))
+            p))))
+
+    (set-who! open-foreign-buffer-input-port
+      (case-lambda
+       [(size address) (open-binary-foreign-buffer-input-port size address)]
+       [(size address maybe-transcoder)
+        (unless (or (not maybe-transcoder) ($transcoder? maybe-transcoder))
+          ($oops who "~s is not #f or a transcoder" maybe-transcoder))
+        (let ([binary-port (open-binary-foreign-buffer-input-port size address)])
+          (if maybe-transcoder
+              (transcoded-port binary-port maybe-transcoder)
+              binary-port))]))
+    )
+
   ;; open-string-input-port
   (let ()
     ;; port-info stores whether to claim it is nonblocking or not

@@ -2447,6 +2447,12 @@
     (scheme-object fixnum scheme-object fixnum fixnum)
     void))
 
+;; TODO fix the stupid name
+(define $byte-copy-indirect!
+  (foreign-procedure "(cs)byte-copy-indirect"
+    (scheme-object scheme-object fixnum fixnum)
+    void))
+
 (define $ptr-copy!
   (foreign-procedure "(cs)ptr-copy"
     (scheme-object fixnum scheme-object fixnum fixnum)

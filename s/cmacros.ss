@@ -672,6 +672,7 @@
 (define-constant port-flag-r6rs            #x2000)
 (define-constant port-flag-fold-case       #x4000)
 (define-constant port-flag-no-fold-case    #x8000)
+(define-constant port-flag-foreign-buffer #x10000)
 
 (define-constant port-flags-offset         (constant ordinary-type-bits))
 
@@ -692,6 +693,7 @@
 (define-constant PORT-FLAG-R6RS (ash (constant port-flag-r6rs) (constant port-flags-offset)))
 (define-constant PORT-FLAG-FOLD-CASE (ash (constant port-flag-fold-case) (constant port-flags-offset)))
 (define-constant PORT-FLAG-NO-FOLD-CASE (ash (constant port-flag-no-fold-case) (constant port-flags-offset)))
+(define-constant PORT-FLAG-FOREIGN-BUFFER (ash (constant port-flag-foreign-buffer) (constant port-flags-offset)))
 
 ;;; c-error codes
 (define-constant ERROR_OTHER 0)

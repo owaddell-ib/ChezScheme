@@ -562,8 +562,8 @@
       (trace-nonself port-handler)
       (copy port-ocount)
       (copy port-icount)
-      (trace-buffer PORT_FLAG_OUTPUT port-obuffer port-olast)
-      (trace-buffer PORT_FLAG_INPUT port-ibuffer port-ilast)
+      (maybe-trace-buffer PORT_FLAG_OUTPUT port-obuffer port-olast)
+      (maybe-trace-buffer PORT_FLAG_INPUT port-ibuffer port-ilast)
       (trace port-info)
       (trace-nonself port-name)
       (count countof-port)]
@@ -942,6 +942,15 @@
        (count countof-record)]
       [off]))]
    [else]))
+
+(define-trace-macro (maybe-trace-buffer flag port-buffer port-last)
+  (case-mode
+   [(copy)
+    (copy port-last)
+    (copy port-buffer)]
+   [else
+    (when (! (& (cast uptr _tf_) PORT_FLAG_FOREIGN_BUFFER))
+      (trace-buffer flag port-buffer port-last))]))
 
 (define-trace-macro (trace-buffer flag port-buffer port-last)
   (case-mode

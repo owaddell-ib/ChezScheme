@@ -114,6 +114,7 @@ static IBOOL s_condition_wait(ptr c, ptr m, ptr t);
 static void s_thread_preserve_ownership(ptr tc);
 #endif
 static void s_byte_copy(ptr src, iptr srcoff, ptr dst, iptr dstoff, iptr cnt);
+static void s_byte_copy_indirect(ptr ip, ptr dst, iptr dstoff, iptr cnt);
 static void s_ptr_copy(ptr src, iptr srcoff, ptr dst, iptr dstoff, iptr cnt);
 static ptr s_tlv(ptr x);
 static void s_stlv(ptr x, ptr v);
@@ -1925,6 +1926,7 @@ void S_prim5_init(void) {
     Sforeign_symbol("(cs)getenv", (void *)s_getenv);
     Sforeign_symbol("(cs)putenv", (void *)s_putenv);
     Sforeign_symbol("(cs)byte-copy", (void *)s_byte_copy);
+    Sforeign_symbol("(cs)byte-copy-indirect", (void *)s_byte_copy_indirect);
     Sforeign_symbol("(cs)ptr-copy", (void *)s_ptr_copy);
     Sforeign_symbol("(cs)boot-error", (void *)S_boot_error);
     Sforeign_symbol("(cs)s_tlv", (void *)s_tlv);
@@ -2026,6 +2028,12 @@ static void s_byte_copy(ptr src, iptr srcoff, ptr dst, iptr dstoff, iptr cnt) {
      memcpy(dstaddr, srcaddr, cnt);
   else
      memmove(dstaddr, srcaddr, cnt);
+}
+
+static void s_byte_copy_indirect(ptr ip, ptr dst, iptr dstoff, iptr cnt) {
+  void *srcaddr = TO_VOIDP((iptr)PORTILAST(ip) + PORTICNT(ip));
+  void *dstaddr = TO_VOIDP((iptr)dst + dstoff);
+  memcpy(dstaddr, srcaddr, cnt);
 }
 
 static void s_ptr_copy(ptr src, iptr srcoff, ptr dst, iptr dstoff, iptr cnt) {
