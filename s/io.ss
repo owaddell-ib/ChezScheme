@@ -4508,7 +4508,8 @@ implementation notes:
       (fields
         (mutable index)
         (mutable length)
-        (mutable nonblocking)))
+        (mutable nonblocking)
+        (immutable immobile?)))
 
     ;; NOTE: leaves index at 0, callers must reset index if needed
     (define (extend-buffer p count)
@@ -4517,7 +4518,10 @@ implementation notes:
             [old-index (binary-port-output-index p)])
       (let* ([new-length (fxmax bytevector-buffer-length
                                 (fx* 2 (fx+ old-size count)))]
-             [new-buffer (make-bytevector new-length)])
+             [new-buffer
+              (if (bytevector-output-port-info-immobile? ($port-info p))
+                  (make-immobile-bytevector new-length)
+                  (make-bytevector new-length))])
           (bytevector-copy! old-buffer 0 new-buffer 0
                             (fxmin (bytevector-length old-buffer) old-size))
           (set-binary-port-output-buffer! p new-buffer))))
@@ -4639,11 +4643,11 @@ implementation notes:
           old-buffer)))
 
     (define open-binary-bytevector-output-port
-      (lambda ()
+      (lambda (immobile?)
         (let ([p ($make-binary-output-port "bytevector"
                    $bytevector-output-handler
                    #vu8()
-                   (make-bytevector-output-port-info 0 0 #f))])
+                   (make-bytevector-output-port-info 0 0 #f immobile?))])
           ($set-port-flags! p (constant port-flag-block-buffered))
           (values
            p
@@ -4658,12 +4662,13 @@ implementation notes:
 
     (set-who! open-bytevector-output-port
       (case-lambda
-       [() (open-binary-bytevector-output-port)]
-       [(maybe-transcoder)
+       [() (open-binary-bytevector-output-port #f)]
+       [(maybe-transcoder) (open-bytevector-output-port maybe-transcoder #f)]
+       [(maybe-transcoder immobile?)
         (unless (or (not maybe-transcoder) ($transcoder? maybe-transcoder))
           ($oops who "~s is not #f or a transcoder" maybe-transcoder))
         (let-values ([(binary-port extractor)
-                      (open-binary-bytevector-output-port)])
+                      (open-binary-bytevector-output-port immobile?)])
           (values
            (if maybe-transcoder
                (transcoded-port binary-port maybe-transcoder)

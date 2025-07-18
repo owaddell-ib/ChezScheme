@@ -612,7 +612,7 @@
   ((r6rs: flush-output-port) [sig [(output-port) -> (void)]] [flags])   ; restricted to 1 argument
   (output-port-buffer-mode [sig [(output-port) -> (symbol)]] [flags true])
   (open-file-output-port [sig [(pathname) (pathname file-options) (pathname file-options sub-symbol) (pathname file-options sub-symbol maybe-transcoder) -> (output-port)]] [flags true])
-  (open-bytevector-output-port [sig [() (maybe-transcoder) -> (output-port procedure)]] [flags discard])
+  (open-bytevector-output-port [sig [() (maybe-transcoder) (maybe-transcoder boolean) -> (output-port procedure)]] [flags discard])
   (call-with-bytevector-output-port [sig [(procedure) (procedure maybe-transcoder) -> (bytevector)]] [flags])
   (open-string-output-port [sig [() -> (textual-output-port procedure)]] [flags discard])
   (call-with-string-output-port [sig [(procedure) -> (string)]] [flags])
