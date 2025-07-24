@@ -3558,7 +3558,7 @@ implementation notes:
                  (let ([index (binary-port-input-index p)]
                        [count (fxmin count port-count)])
                    ;; extract address on C side so we avoid boxing if not fixnum
-                   (#%$byte-copy-indirect! p bv (constant bytevector-data-disp) count)
+                   (#%$byte-copy-indirect! p bv (fx+ (constant bytevector-data-disp) start) count)
                    (set-binary-port-input-index! p (fx+ index count))
                    count))))]
         [clear-input
