@@ -147,9 +147,9 @@
           [else #f]))
        (new
         ;; TODO should we keep a count of hits for source in source table?
-        (make-source-table)
-        (make-eq-hashtable)
-        (make-eq-hashtable)
+        (make-source-table) ;; st
+        (make-eq-hashtable) ;; key->node
+        (make-eq-hashtable) ;; prim->node
         ;; TODO using (default-src . '()) was misguided: we don't want client to merge everything w/ same source when we can clearly distinguish references prelex for which we have no source
         ;;      still, it's kind of neat to see that file foo.ss contains a reference to our identifier bar somewhere
         (cons default-src '()))))))
