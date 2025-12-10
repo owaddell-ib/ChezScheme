@@ -418,12 +418,12 @@
    [(syntax-object? id)
     (id->label (syntax-object-expression id) (syntax-object-wrap id))]
    [else  
-    (printf "HACK-id->key got ~s\n" id)   
+    (YOLO "HACK-id->key got ~s\n" id)   
     id
     ]))
 
 (define (get-or-add-interface! sm key kind name src)
-  (printf "--> get-or-add-interface! kind=~s key=~s name=~s src=~s\n" kind key name src)     
+  (YOLO "--> get-or-add-interface! kind=~s key=~s name=~s src=~s\n" kind key name src)     
   (get-or-add-node! sm source-map-key->node kind
     ;; for modules we get a syntax object; for libraries a uid
     (HACK-id->key key)
@@ -433,13 +433,13 @@
       (make-interface-info name kind src '() '() '()))))
 
 (define (add-import! sm uid impspec)
-  (printf "add-import! uid=~s impspec=~s\n" uid impspec)   
+  (YOLO "add-import! uid=~s impspec=~s\n" uid impspec)   
   ;; TODO is 'library correct here or can module also hit this?
   (let ([ci (get-or-add-interface! sm uid 'library #f #f)])
     (add-node-use! sm ci (get-ae impspec) interface-info-ref* interface-info-ref*-set!)))
 
 (define (add-realm! sm src uid kind name/path version export* impreq* def-src*)
-  (printf "add-realm! name/path=~s uid=~s\n" name/path uid) 
+  (YOLO "add-realm! name/path=~s uid=~s\n" name/path uid) 
   ;; name may have source as well, may be more useful for UI than entire region covered by src
   (let* ([name (or (syntax->annotation name/path) (syntax->datum name/path))]
          [node (get-or-add-interface! sm uid kind name src)])
@@ -469,7 +469,7 @@
                  (cond
                   [(identifier-info? node) (add-identifier-ref! sm node ae)]
                   [(interface-info? node) (add-node-use! sm node ae interface-info-ref* interface-info-ref*-set!)]
-                  [else (printf "FORGOT TO HANDLE node type: ~s\n" node)]))]
+                  [else (YOLO "FORGOT TO HANDLE node type: ~s\n" node)]))]
               [else
                ;; TODO when compiling Swish we're hitting this case for things like:
                ;;   - replace-source
@@ -478,10 +478,10 @@
                ;;   - make-natural<?
                ;;   - token<?
                ;;   - ALSO for log-event and endure-logger-fault?
-               (printf "Huh? no node for label ~s\n" label)]))]
+               (YOLO "Huh? no node for label ~s\n" label)]))]
           [else
            ;; TODO oops, ifacev resolved ids have no source
-           (printf "sorry, no annotation for export id ~s\n" id)
+           (YOLO "sorry, no annotation for export id ~s\n" id)
            ]))
        export* labels))))
 
@@ -517,11 +517,11 @@
   ;;        - what kinds of questions are these intended to address
   ;;          - e.g., maybe we bulk up edges by recording something about the "context" in addition to the source
   ;;            - that's likely to be something like contour
-  (printf "punting on add-contour\n")
+  (YOLO "punting on add-contour\n")
   (void))
 
 (define (add-alias! sm new-id old-id)
-  (printf "punting on alias of ~s\n" old-id)
+  (YOLO "punting on alias of ~s\n" old-id)
   (void))
 
 (begin
@@ -2052,7 +2052,7 @@
         '())
         
       ;; TODO decide where and how to actually smash things
-      (printf "resolve-id ~@[~s ~]~s type=~s label=~s\n" (and (symbol? id) id) (TODO-FIXME src) type label)  
+      (YOLO "resolve-id ~@[~s ~]~s type=~s label=~s\n" (and (symbol? id) id) (TODO-FIXME src) type label)  
       (when (memq type '(macro macro!))
         (add-syntax-ref! sm id label))
       ;; TODO things to skip here:

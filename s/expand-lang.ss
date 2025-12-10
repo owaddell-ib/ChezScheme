@@ -13,6 +13,14 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
+(define debug-my-garbage? (equal? (getenv "VERBOSE") "t"))
+
+(define-syntax YOLO
+  (syntax-rules ()
+    [(_ fmt arg ...)
+     (when debug-my-garbage?
+       (printf fmt arg ...))]))
+
 (define-record-type libreq
   (fields
     (immutable path)
@@ -335,6 +343,7 @@
   (let ([si (get-lexical-id-info! sm prelex)])
     (add-identifier-set! sm si src)))
 
+#;  ;; TODO unreferenced
 (define (add-lexical-def! sm src prelex)
   (let ([si (get-lexical-id-info! sm prelex)])
     (add-identifier-info-def! sm si src)))
@@ -349,7 +358,7 @@
     (cond
      [(identifier-info-def si) =>
       (lambda (prev)
-        (printf "[~a] had def src ~s now change to ~s\n"
+        (YOLO "[~a] had def src ~s now change to ~s\n"
           (if (eq? prev src)
               "same"
               "DIFF")
