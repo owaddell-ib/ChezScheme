@@ -439,7 +439,7 @@
     (add-node-use! sm ci (get-ae impspec) interface-info-ref* interface-info-ref*-set!)))
 
 (define (add-realm! sm src uid kind name/path version export* impreq* def-src*)
-  (YOLO "add-realm! name/path=~s uid=~s\n" name/path uid) 
+  (YOLO "add-realm! name/path=~s uid=~s src=~s\n" name/path uid src) 
   ;; name may have source as well, may be more useful for UI than entire region covered by src
   (let* ([name (or (syntax->annotation name/path) (syntax->datum name/path))]
          [node (get-or-add-interface! sm uid kind name src)])
