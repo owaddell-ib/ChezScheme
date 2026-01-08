@@ -552,6 +552,8 @@
 (define-primitive ($source-file-descriptor fn p)
   fn)
 
+(define-primitive $report-macro-expansion (make-parameter #f)) ;; TEMPORARY HACK                 
+
 (define-primitive ($make-read p . more)
   (let ([l (filtered-file->exps p)])
     (lambda ()

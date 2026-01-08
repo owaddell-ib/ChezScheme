@@ -3682,6 +3682,11 @@
 
 (define chi-macro
   (lambda (p e r w ae rib)
+    (define (HACK output) ;; TEMPORARY HACK                     
+      ;; TODO we may want to pass in the id so we can filter better? else user has to handle
+      ;;      both macro! and normal macros
+      (cond [($report-macro-expansion) => (lambda (f) (f (source-wrap e w ae) output))])
+      output)
     (define rebuild-macro-output
      ; wraps (e.g., anti-marks, substitutions) are not generally pushed into
      ; records since there's no syntax-case pattern for unpeeling records,
@@ -3713,6 +3718,7 @@
                  (format "~s" x)
                  " in output of macro"))
               (else x))))
+    (HACK
     (rebuild-macro-output
       (let ((out (p (source-wrap e (anti-mark w) ae))))
         (if (procedure? out)
@@ -3751,6 +3757,7 @@
                                            (loop new-id-label/pl retry)))]))))])))
             out))
       (new-mark))))
+  )
 
 (define chi-body
   (lambda (body outer-form r w)
@@ -5347,6 +5354,22 @@
                  void
                  (get-lpinfo fn situation)))))
           (for-each (lambda (libdirs fn) (parameterize ([library-directories libdirs]) (check-fn! situation fn #f))) libdirs* fn*)))))
+
+  ;; TODO this is a terrible expedient hack; just trying to see if this would even be useful
+  ;;      - somehow make this both efficient and expressive
+  ;;      - may want some construct like (trace-macro-output handler-expr macro-id ...) that works
+  ;;        in a local scope (I guess it could work at top level as well?) and causes us to call
+  ;;        the provided hook in order to report the expansion
+  ;;      - we probably want this to instead be an internal thing where we can do something to either
+  ;;        shadow the binding or smash the binding value in the local environment (copy somehow, if
+  ;;        environment is immutable?) and make the binding value be something that handles invoking
+  ;;        a provided trace procedure or something
+  (set-who! $report-macro-expansion
+    ($make-thread-parameter #f
+      (lambda (x)
+        (unless (or (not x) (procedure? x))
+          ($oops who "invalid value for parameter: ~s" x))
+        x)))
 
   (let ()
     (define maybe-get-lib

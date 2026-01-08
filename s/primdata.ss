@@ -2403,6 +2403,7 @@
   ($record-type-field-count [sig [(ptr) -> (fixnum)]] [flags single-valued pure mifoldable discard true])
   ($reloc [flags single-valued])
   ($remake-rtd [flags single-valued])
+  ($report-macro-expansion [flags single-valued]) ;; TEMPORARY HACK                 
   ($report-string [flags single-valued])
   ($require-include [flags single-valued])
   ($require-libraries [flags single-valued])
